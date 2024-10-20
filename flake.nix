@@ -63,6 +63,7 @@
         devShells.default = craneLib.devShell {
           checks = self.checks.${localSystem};
           packages = with pkgs; [
+            cargo-deny
             cargo-machete
             cargo-rdme
             cargo-release
