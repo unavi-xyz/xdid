@@ -1,0 +1,10 @@
+[workspace]
+resolver = "2"
+members = ["crates/*"]
+
+[workspace.package]
+version = "0.0.0"
+edition = "2021"
+repository = "https://github.com/unavi-xyz/xdid"
+license = "MIT OR Apache-2.0"
+keywords = ["did"]
