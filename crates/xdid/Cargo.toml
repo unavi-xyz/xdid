@@ -5,3 +5,13 @@ edition.workspace = true
 repository.workspace = true
 license.workspace = true
 keywords.workspace = true
+
+[features]
+default = ["did-key", "did-web"]
+did-key = ["dep:xdid-method-key"]
+did-web = ["dep:xdid-method-web"]
+
+[dependencies]
+xdid-core = { path = "../xdid-core" }
+xdid-method-key = { path = "../xdid-method-key", optional = true }
+xdid-method-web = { path = "../xdid-method-web", optional = true }

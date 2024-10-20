@@ -64,7 +64,9 @@
           checks = self.checks.${localSystem};
           packages = with pkgs; [
             cargo-machete
+            cargo-rdme
             cargo-release
+            cargo-workspaces
             nodePackages.prettier
             rust-analyzer
           ];

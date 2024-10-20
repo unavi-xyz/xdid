@@ -5,3 +5,26 @@ version = 3
 [[package]]
 name = "xdid"
 version = "0.0.0"
+dependencies = [
+ "xdid-core",
+ "xdid-method-key",
+ "xdid-method-web",
+]
+
+[[package]]
+name = "xdid-core"
+version = "0.0.0"
+
+[[package]]
+name = "xdid-method-key"
+version = "0.0.0"
+dependencies = [
+ "xdid-core",
+]
+
+[[package]]
+name = "xdid-method-web"
+version = "0.0.0"
+dependencies = [
+ "xdid-core",
+]
