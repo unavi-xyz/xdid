@@ -1,7 +1,7 @@
-//! Simple [DID](https://www.w3.org/TR/did-core/) implementation, in Rust.
+//! Simple [DID](https://www.w3.org/TR/did-core/) library.
 //!
 //! Add support for new methods using the [Method](xdid_core::Method) trait,
-//! then create a [Resolver] to parse and resolve DIDs.
+//! then create a [Resolver](resolver::Resolver) to parse and resolve DIDs.
 
 mod resolver;
 
