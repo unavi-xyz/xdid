@@ -27,3 +27,19 @@ impl DidResolver {
         Err(ResolutionError::UnsupportedMethod)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use xdid_method_key::{keys::p256::P256KeyPair, DidKey};
+
+    use super::*;
+
+    #[tokio::test]
+    async fn test_resolve_did_key() {
+        let did = DidKey::new(P256KeyPair::generate().unwrap().to_public()).to_did();
+
+        let resolver = DidResolver::default();
+        let document = resolver.resolve(&did).await.unwrap();
+        assert_eq!(document.id, did);
+    }
+}

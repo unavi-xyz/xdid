@@ -15,3 +15,6 @@ did-web = ["dep:xdid-method-web"]
 xdid-core = { path = "../xdid-core" }
 xdid-method-key = { path = "../xdid-method-key", optional = true }
 xdid-method-web = { path = "../xdid-method-web", optional = true }
+
+[dev-dependencies]
+tokio = { version = "1.40.0", features = ["macros", "rt"] }
