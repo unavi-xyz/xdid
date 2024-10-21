@@ -14,4 +14,6 @@ pub mod core {
 pub mod methods {
     #[cfg(feature = "did-key")]
     pub use xdid_method_key::*;
+    #[cfg(feature = "did-web")]
+    pub use xdid_method_web::*;
 }
