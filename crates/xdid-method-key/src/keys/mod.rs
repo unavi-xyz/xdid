@@ -4,6 +4,8 @@ use jose_jwk::Jwk;
 pub mod ed25519;
 #[cfg(feature = "p256")]
 pub mod p256;
+#[cfg(feature = "p384")]
+pub mod p384;
 
 pub trait Multicodec {
     fn code_u64(&self) -> u64;
