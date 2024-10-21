@@ -1,5 +1,6 @@
 [package]
 name = "xdid-core"
+description = "Core types for DID methods to implement."
 version.workspace = true
 edition.workspace = true
 repository.workspace = true

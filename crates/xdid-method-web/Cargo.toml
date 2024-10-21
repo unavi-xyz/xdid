@@ -1,5 +1,6 @@
 [package]
 name = "xdid-method-web"
+description = "xdid implementation of did:web"
 version.workspace = true
 edition.workspace = true
 repository.workspace = true
@@ -7,4 +8,4 @@ license.workspace = true
 keywords.workspace = true
 
 [dependencies]
-xdid-core = { path = "../xdid-core" }
+xdid-core = { path = "../xdid-core", version = "0.0.0" }
