@@ -1,8 +1,6 @@
-use xdid_core::Method;
-
 /// DID resolver.
 pub struct Resolver {
-    pub methods: Vec<Box<dyn Method>>,
+    // pub methods: Vec<Box<dyn Method>>,
 }
 
 impl Resolver {

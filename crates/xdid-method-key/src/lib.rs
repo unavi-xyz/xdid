@@ -29,4 +29,8 @@ impl Display for DidKey {
     }
 }
 
-impl Method for DidKey {}
+impl Method for DidKey {
+    async fn resolve(&self) -> Result<xdid_core::document::Document, xdid_core::ResolutionError> {
+        todo!();
+    }
+}
