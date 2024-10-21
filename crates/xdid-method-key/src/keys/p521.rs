@@ -1,22 +1,22 @@
 use jose_jwk::Jwk;
-use p384::{elliptic_curve::sec1::ToEncodedPoint, SecretKey};
+use p521::{elliptic_curve::sec1::ToEncodedPoint, SecretKey};
 use rand::rngs::OsRng;
 
 use super::{KeyParser, Multicodec, PublicKey, WithMulticodec};
 
-pub struct P384KeyPair {
+pub struct P521KeyPair {
     secret: SecretKey,
 }
 
-impl P384KeyPair {
+impl P521KeyPair {
     pub fn generate() -> Result<Self, ring::error::Unspecified> {
         let mut rng = OsRng;
         let secret = SecretKey::random(&mut rng);
         Ok(Self { secret })
     }
 
-    pub fn to_public(&self) -> P384PublicKey {
-        P384PublicKey(
+    pub fn to_public(&self) -> P521PublicKey {
+        P521PublicKey(
             self.secret
                 .public_key()
                 .to_encoded_point(true)
@@ -26,9 +26,9 @@ impl P384KeyPair {
     }
 }
 
-pub struct P384PublicKey(Vec<u8>);
+pub struct P521PublicKey(Vec<u8>);
 
-impl PublicKey for P384PublicKey {
+impl PublicKey for P521PublicKey {
     fn public_key(&self) -> &[u8] {
         self.0.as_ref()
     }
@@ -38,31 +38,31 @@ impl PublicKey for P384PublicKey {
     }
 }
 
-impl WithMulticodec for P384PublicKey {
+impl WithMulticodec for P521PublicKey {
     fn codec(&self) -> Box<dyn Multicodec> {
-        Box::new(P384Codec)
+        Box::new(P521Codec)
     }
 }
 
-pub struct P384KeyParser;
+pub struct P521KeyParser;
 
-impl KeyParser for P384KeyParser {
+impl KeyParser for P521KeyParser {
     fn parse(&self, public_key: Vec<u8>) -> Box<dyn PublicKey> {
-        Box::new(P384PublicKey(public_key))
+        Box::new(P521PublicKey(public_key))
     }
 }
 
-impl WithMulticodec for P384KeyParser {
+impl WithMulticodec for P521KeyParser {
     fn codec(&self) -> Box<dyn Multicodec> {
-        Box::new(P384Codec)
+        Box::new(P521Codec)
     }
 }
 
-struct P384Codec;
+struct P521Codec;
 
-impl Multicodec for P384Codec {
+impl Multicodec for P521Codec {
     fn code_u64(&self) -> u64 {
-        0x1201
+        0x1202
     }
 }
 
@@ -74,10 +74,10 @@ mod tests {
 
     #[test]
     fn test_display() {
-        let pair = P384KeyPair::generate().unwrap();
+        let pair = P521KeyPair::generate().unwrap();
         let did = DidKey::new(pair.to_public()).to_did();
         let did_str = did.to_string();
         println!("{}", did_str);
-        assert!(did_str.starts_with("did:key:z82"));
+        assert!(did_str.starts_with("did:key:z2J9"));
     }
 }
