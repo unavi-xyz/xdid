@@ -1,11 +1,9 @@
 //! Simple [DID](https://www.w3.org/TR/did-core/) library.
 //!
 //! Add support for new methods using the [Method](xdid_core::Method) trait,
-//! then create a [Resolver](resolver::Resolver) to parse and resolve DIDs.
+//! then create a [Resolver](resolver::Resolver) to resolve DID documents.
 
-mod resolver;
-
-pub use resolver::*;
+pub mod resolver;
 
 pub mod core {
     pub use xdid_core::*;

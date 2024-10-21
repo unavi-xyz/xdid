@@ -27,7 +27,9 @@ p521 = []
 rsa = []
 
 [dependencies]
+jose-jwk.workspace = true
 multibase = "0.9.1"
 ring = { version = "0.17.8", optional = true }
+thiserror.workspace = true
 unsigned-varint = { version = "0.8.0" }
 xdid-core = { path = "../xdid-core" }

@@ -1,31 +1,51 @@
-use ring::{
-    rand::SystemRandom,
-    signature::{Ed25519KeyPair, KeyPair},
-};
+use jose_jwk::Jwk;
+use ring::{rand::SystemRandom, signature::KeyPair};
 
-use super::Key;
+use super::{KeyParser, PublicKey};
 
-pub struct Ed25519Key {
-    key: Ed25519KeyPair,
-}
+pub struct Ed25519PublicKey(pub Vec<u8>);
 
-impl Ed25519Key {
-    /// Generates a new key.
-    pub fn generate() -> Result<Self, ring::error::Unspecified> {
-        let rng = SystemRandom::new();
-        let document = Ed25519KeyPair::generate_pkcs8(&rng)?;
-        let key = Ed25519KeyPair::from_pkcs8(document.as_ref()).unwrap();
-        Ok(Self { key })
-    }
-}
-
-impl Key for Ed25519Key {
+impl PublicKey for Ed25519PublicKey {
     fn public_code(&self) -> u64 {
         0xed
     }
 
     fn public_key(&self) -> &[u8] {
-        self.key.public_key().as_ref()
+        self.0.as_ref()
+    }
+
+    fn to_jwk(&self) -> Jwk {
+        todo!("ed25519 currently unimplemented in jose_jwk");
+    }
+}
+
+pub struct Ed25519KeyPair {
+    pair: ring::signature::Ed25519KeyPair,
+}
+
+impl Ed25519KeyPair {
+    /// Generates a new key.
+    pub fn generate() -> Result<Self, ring::error::Unspecified> {
+        let rng = SystemRandom::new();
+        let document = ring::signature::Ed25519KeyPair::generate_pkcs8(&rng)?;
+        let pair = ring::signature::Ed25519KeyPair::from_pkcs8(document.as_ref()).unwrap();
+        Ok(Self { pair })
+    }
+
+    pub fn to_public(&self) -> Ed25519PublicKey {
+        Ed25519PublicKey(self.pair.public_key().as_ref().to_owned())
+    }
+}
+
+pub struct Ed25519KeyParser;
+
+impl KeyParser for Ed25519KeyParser {
+    fn code_u64(&self) -> u64 {
+        0xed
+    }
+
+    fn parse(&self, public_key: Vec<u8>) -> Box<dyn PublicKey> {
+        Box::new(Ed25519PublicKey(public_key))
     }
 }
 
@@ -37,8 +57,8 @@ mod tests {
 
     #[test]
     fn test_display() {
-        let key = Ed25519Key::generate().unwrap();
-        let did = DidKey { key: Box::new(key) };
+        let pair = Ed25519KeyPair::generate().unwrap();
+        let did = DidKey::new(pair.to_public()).to_did();
         let did_str = did.to_string();
         println!("{}", did_str);
         assert!(did_str.starts_with("did:key:z6Mk"));

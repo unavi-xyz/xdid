@@ -1,3 +1,4 @@
+use jose_jwk::Jwk;
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, skip_serializing_none};
 
@@ -24,7 +25,7 @@ pub struct Document {
 #[derive(Serialize, Deserialize, Debug)]
 pub enum VerificationMethod {
     Map(VerificationMethodMap),
-    URL(String),
+    URL(DidUrl),
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -47,6 +48,3 @@ pub struct ServiceEndpoint {
     #[serde_as(as = "OneOrMany<_>")]
     pub typ: Vec<String>,
 }
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct Jwk {}
