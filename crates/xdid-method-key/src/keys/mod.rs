@@ -22,7 +22,7 @@ pub trait WithMulticodec {
 }
 
 pub trait PublicKey: WithMulticodec {
-    fn public_key(&self) -> &[u8];
+    fn public_key(&self) -> Vec<u8>;
     fn to_jwk(&self) -> Jwk;
 }
 

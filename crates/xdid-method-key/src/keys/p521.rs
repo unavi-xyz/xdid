@@ -1,5 +1,5 @@
 use jose_jwk::Jwk;
-use p521::{elliptic_curve::sec1::ToEncodedPoint, SecretKey};
+use p521::{elliptic_curve::sec1::ToEncodedPoint, pkcs8::DecodePublicKey, SecretKey};
 use rand::rngs::OsRng;
 
 use super::{KeyParser, Multicodec, PublicKey, WithMulticodec};
@@ -16,25 +16,20 @@ impl P521KeyPair {
     }
 
     pub fn to_public(&self) -> P521PublicKey {
-        P521PublicKey(
-            self.secret
-                .public_key()
-                .to_encoded_point(true)
-                .as_bytes()
-                .to_vec(),
-        )
+        P521PublicKey(self.secret.public_key())
     }
 }
 
-pub struct P521PublicKey(Vec<u8>);
+pub struct P521PublicKey(p521::PublicKey);
 
 impl PublicKey for P521PublicKey {
-    fn public_key(&self) -> &[u8] {
-        self.0.as_ref()
+    fn public_key(&self) -> Vec<u8> {
+        self.0.to_encoded_point(true).as_bytes().to_vec()
     }
 
     fn to_jwk(&self) -> Jwk {
-        todo!();
+        let jwk_str = self.0.to_jwk_string();
+        serde_json::from_str(&jwk_str).unwrap()
     }
 }
 
@@ -48,7 +43,8 @@ pub struct P521KeyParser;
 
 impl KeyParser for P521KeyParser {
     fn parse(&self, public_key: Vec<u8>) -> Box<dyn PublicKey> {
-        Box::new(P521PublicKey(public_key))
+        let key = p521::PublicKey::from_public_key_der(&public_key).unwrap();
+        Box::new(P521PublicKey(key))
     }
 }
 
@@ -79,5 +75,11 @@ mod tests {
         let did_str = did.to_string();
         println!("{}", did_str);
         assert!(did_str.starts_with("did:key:z2J9"));
+    }
+
+    #[test]
+    fn test_jwk() {
+        let pair = P521KeyPair::generate().unwrap();
+        let _ = pair.to_public().to_jwk();
     }
 }

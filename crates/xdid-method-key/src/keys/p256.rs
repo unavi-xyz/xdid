@@ -1,5 +1,5 @@
 use jose_jwk::Jwk;
-use p256::{elliptic_curve::sec1::ToEncodedPoint, SecretKey};
+use p256::{elliptic_curve::sec1::ToEncodedPoint, pkcs8::DecodePublicKey, SecretKey};
 use rand::rngs::OsRng;
 
 use super::{KeyParser, Multicodec, PublicKey, WithMulticodec};
@@ -16,25 +16,20 @@ impl P256KeyPair {
     }
 
     pub fn to_public(&self) -> P256PublicKey {
-        P256PublicKey(
-            self.secret
-                .public_key()
-                .to_encoded_point(true)
-                .as_bytes()
-                .to_vec(),
-        )
+        P256PublicKey(self.secret.public_key())
     }
 }
 
-pub struct P256PublicKey(Vec<u8>);
+pub struct P256PublicKey(p256::PublicKey);
 
 impl PublicKey for P256PublicKey {
-    fn public_key(&self) -> &[u8] {
-        self.0.as_ref()
+    fn public_key(&self) -> Vec<u8> {
+        self.0.to_encoded_point(true).as_bytes().to_vec()
     }
 
     fn to_jwk(&self) -> Jwk {
-        todo!();
+        let jwk_str = self.0.to_jwk_string();
+        serde_json::from_str(&jwk_str).unwrap()
     }
 }
 
@@ -48,7 +43,8 @@ pub struct P256KeyParser;
 
 impl KeyParser for P256KeyParser {
     fn parse(&self, public_key: Vec<u8>) -> Box<dyn PublicKey> {
-        Box::new(P256PublicKey(public_key))
+        let key = p256::PublicKey::from_public_key_der(&public_key).unwrap();
+        Box::new(P256PublicKey(key))
     }
 }
 
@@ -79,5 +75,11 @@ mod tests {
         let did_str = did.to_string();
         println!("{}", did_str);
         assert!(did_str.starts_with("did:key:zDn"));
+    }
+
+    #[test]
+    fn test_jwk() {
+        let pair = P256KeyPair::generate().unwrap();
+        let _ = pair.to_public().to_jwk();
     }
 }

@@ -1,5 +1,5 @@
 use jose_jwk::Jwk;
-use p384::{elliptic_curve::sec1::ToEncodedPoint, SecretKey};
+use p384::{elliptic_curve::sec1::ToEncodedPoint, pkcs8::DecodePublicKey, SecretKey};
 use rand::rngs::OsRng;
 
 use super::{KeyParser, Multicodec, PublicKey, WithMulticodec};
@@ -16,25 +16,20 @@ impl P384KeyPair {
     }
 
     pub fn to_public(&self) -> P384PublicKey {
-        P384PublicKey(
-            self.secret
-                .public_key()
-                .to_encoded_point(true)
-                .as_bytes()
-                .to_vec(),
-        )
+        P384PublicKey(self.secret.public_key())
     }
 }
 
-pub struct P384PublicKey(Vec<u8>);
+pub struct P384PublicKey(p384::PublicKey);
 
 impl PublicKey for P384PublicKey {
-    fn public_key(&self) -> &[u8] {
-        self.0.as_ref()
+    fn public_key(&self) -> Vec<u8> {
+        self.0.to_encoded_point(true).as_bytes().to_vec()
     }
 
     fn to_jwk(&self) -> Jwk {
-        todo!();
+        let jwk_str = self.0.to_jwk_string();
+        serde_json::from_str(&jwk_str).unwrap()
     }
 }
 
@@ -48,7 +43,8 @@ pub struct P384KeyParser;
 
 impl KeyParser for P384KeyParser {
     fn parse(&self, public_key: Vec<u8>) -> Box<dyn PublicKey> {
-        Box::new(P384PublicKey(public_key))
+        let key = p384::PublicKey::from_public_key_der(&public_key).unwrap();
+        Box::new(P384PublicKey(key))
     }
 }
 
@@ -79,5 +75,11 @@ mod tests {
         let did_str = did.to_string();
         println!("{}", did_str);
         assert!(did_str.starts_with("did:key:z82"));
+    }
+
+    #[test]
+    fn test_jwk() {
+        let pair = P384KeyPair::generate().unwrap();
+        let _ = pair.to_public().to_jwk();
     }
 }

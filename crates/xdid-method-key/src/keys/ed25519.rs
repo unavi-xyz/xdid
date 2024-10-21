@@ -23,8 +23,8 @@ impl Ed25519KeyPair {
 pub struct Ed25519PublicKey(Vec<u8>);
 
 impl PublicKey for Ed25519PublicKey {
-    fn public_key(&self) -> &[u8] {
-        self.0.as_ref()
+    fn public_key(&self) -> Vec<u8> {
+        self.0.clone()
     }
 
     fn to_jwk(&self) -> Jwk {

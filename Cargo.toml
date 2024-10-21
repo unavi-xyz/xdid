@@ -11,4 +11,5 @@ keywords = ["did"]
 
 [workspace.dependencies]
 jose-jwk = "0.1.2"
+serde_json = "1.0.132"
 thiserror = "1.0.64"
