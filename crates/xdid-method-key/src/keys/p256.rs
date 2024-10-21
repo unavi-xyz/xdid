@@ -1,5 +1,8 @@
 use jose_jwk::Jwk;
-use p256::{elliptic_curve::sec1::ToEncodedPoint, pkcs8::DecodePublicKey, SecretKey};
+use p256::{
+    elliptic_curve::sec1::{FromEncodedPoint, ToEncodedPoint},
+    SecretKey,
+};
 use rand::rngs::OsRng;
 
 use super::{KeyParser, Multicodec, PublicKey, WithMulticodec};
@@ -43,7 +46,8 @@ pub struct P256KeyParser;
 
 impl KeyParser for P256KeyParser {
     fn parse(&self, public_key: Vec<u8>) -> Box<dyn PublicKey> {
-        let key = p256::PublicKey::from_public_key_der(&public_key).unwrap();
+        let point = p256::EncodedPoint::from_bytes(public_key).unwrap();
+        let key = p256::PublicKey::from_encoded_point(&point).unwrap();
         Box::new(P256PublicKey(key))
     }
 }
@@ -64,7 +68,7 @@ impl Multicodec for P256Codec {
 
 #[cfg(test)]
 mod tests {
-    use crate::DidKey;
+    use crate::{parser::DidKeyParser, DidKey};
 
     use super::*;
 
@@ -72,6 +76,7 @@ mod tests {
     fn test_display() {
         let pair = P256KeyPair::generate().unwrap();
         let did = DidKey::new(pair.to_public()).to_did();
+
         let did_str = did.to_string();
         println!("{}", did_str);
         assert!(did_str.starts_with("did:key:zDn"));
@@ -81,5 +86,14 @@ mod tests {
     fn test_jwk() {
         let pair = P256KeyPair::generate().unwrap();
         let _ = pair.to_public().to_jwk();
+    }
+
+    #[test]
+    fn test_parse() {
+        let pair = P256KeyPair::generate().unwrap();
+        let did = DidKey::new(pair.to_public()).to_did();
+
+        let parser = DidKeyParser::default();
+        let _ = parser.parse(&did).unwrap();
     }
 }

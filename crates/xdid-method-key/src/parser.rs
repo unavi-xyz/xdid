@@ -15,6 +15,10 @@ impl Default for DidKeyParser {
             Box::new(crate::keys::ed25519::Ed25519KeyParser),
             #[cfg(feature = "p256")]
             Box::new(crate::keys::p256::P256KeyParser),
+            #[cfg(feature = "p384")]
+            Box::new(crate::keys::p384::P384KeyParser),
+            #[cfg(feature = "p521")]
+            Box::new(crate::keys::p521::P521KeyParser),
         ];
 
         Self { parsers }
@@ -27,9 +31,10 @@ impl DidKeyParser {
         debug_assert_eq!(base, Base::Base58Btc);
 
         for parser in self.parsers.iter() {
-            if inner.starts_with(&parser.codec().code()) {
+            let code = parser.codec().code();
+            if let Some(bytes) = inner.strip_prefix(code.as_slice()) {
                 return Ok(DidKey {
-                    key: parser.parse(inner),
+                    key: parser.parse(bytes.to_vec()),
                 });
             }
         }
