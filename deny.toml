@@ -44,6 +44,12 @@ crate = "ring"
 allow = ["Unicode-DFS-2016"]
 crate = "unicode-ident"
 
+[advisories]
+version = 2
+ignore = [
+  "RUSTSEC-2023-0071", # rsa sidechannel
+]
+
 [bans]
 deny = [{ name = "tokio", deny-multiple-versions = true }]
 
