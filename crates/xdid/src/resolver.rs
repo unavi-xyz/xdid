@@ -7,10 +7,10 @@ pub struct DidResolver {
 
 impl Default for DidResolver {
     fn default() -> Self {
-        let mut methods = Vec::<Box<dyn Method>>::new();
-
-        #[cfg(feature = "did-key")]
-        methods.push(Box::new(xdid_method_key::MethodDidKey));
+        let methods: Vec<Box<dyn Method>> = vec![
+            #[cfg(feature = "did-key")]
+            Box::new(xdid_method_key::MethodDidKey),
+        ];
 
         Self { methods }
     }

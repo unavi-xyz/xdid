@@ -10,10 +10,12 @@ pub struct DidKeyParser {
 
 impl Default for DidKeyParser {
     fn default() -> Self {
-        let mut parsers = Vec::<Box<dyn KeyParser>>::new();
-
-        #[cfg(feature = "ed25519")]
-        parsers.push(Box::new(crate::keys::ed25519::Ed25519KeyParser));
+        let parsers: Vec<Box<dyn KeyParser>> = vec![
+            #[cfg(feature = "ed25519")]
+            Box::new(crate::keys::ed25519::Ed25519KeyParser),
+            #[cfg(feature = "p256")]
+            Box::new(crate::keys::p256::P256KeyParser),
+        ];
 
         Self { parsers }
     }
@@ -25,7 +27,7 @@ impl DidKeyParser {
         debug_assert_eq!(base, Base::Base58Btc);
 
         for parser in self.parsers.iter() {
-            if inner.starts_with(&parser.code()) {
+            if inner.starts_with(&parser.codec().code()) {
                 return Ok(DidKey {
                     key: parser.parse(inner),
                 });

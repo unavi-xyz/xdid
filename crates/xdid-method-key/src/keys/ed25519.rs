@@ -1,30 +1,13 @@
 use jose_jwk::Jwk;
 use ring::{rand::SystemRandom, signature::KeyPair};
 
-use super::{KeyParser, PublicKey};
-
-pub struct Ed25519PublicKey(pub Vec<u8>);
-
-impl PublicKey for Ed25519PublicKey {
-    fn public_code(&self) -> u64 {
-        0xed
-    }
-
-    fn public_key(&self) -> &[u8] {
-        self.0.as_ref()
-    }
-
-    fn to_jwk(&self) -> Jwk {
-        todo!("ed25519 currently unimplemented in jose_jwk");
-    }
-}
+use super::{KeyParser, Multicodec, PublicKey, WithMulticodec};
 
 pub struct Ed25519KeyPair {
     pair: ring::signature::Ed25519KeyPair,
 }
 
 impl Ed25519KeyPair {
-    /// Generates a new key.
     pub fn generate() -> Result<Self, ring::error::Unspecified> {
         let rng = SystemRandom::new();
         let document = ring::signature::Ed25519KeyPair::generate_pkcs8(&rng)?;
@@ -37,15 +20,43 @@ impl Ed25519KeyPair {
     }
 }
 
+pub struct Ed25519PublicKey(Vec<u8>);
+
+impl PublicKey for Ed25519PublicKey {
+    fn public_key(&self) -> &[u8] {
+        self.0.as_ref()
+    }
+
+    fn to_jwk(&self) -> Jwk {
+        todo!("ed25519 currently unimplemented in jose_jwk");
+    }
+}
+
+impl WithMulticodec for Ed25519PublicKey {
+    fn codec(&self) -> Box<dyn Multicodec> {
+        Box::new(Ed25519Codec)
+    }
+}
+
 pub struct Ed25519KeyParser;
 
 impl KeyParser for Ed25519KeyParser {
-    fn code_u64(&self) -> u64 {
-        0xed
-    }
-
     fn parse(&self, public_key: Vec<u8>) -> Box<dyn PublicKey> {
         Box::new(Ed25519PublicKey(public_key))
+    }
+}
+
+impl WithMulticodec for Ed25519KeyParser {
+    fn codec(&self) -> Box<dyn Multicodec> {
+        Box::new(Ed25519Codec)
+    }
+}
+
+struct Ed25519Codec;
+
+impl Multicodec for Ed25519Codec {
+    fn code_u64(&self) -> u64 {
+        0xed
     }
 }
 

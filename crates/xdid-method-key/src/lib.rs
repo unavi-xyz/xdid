@@ -24,14 +24,12 @@ impl DidKey {
     }
 
     pub fn to_did(&self) -> Did {
-        let key_bytes = self.key.public_key();
+        let bytes = self.key.public_key();
+        let code = self.key.codec().code();
 
-        let mut buffer = unsigned_varint::encode::u64_buffer();
-        let code = unsigned_varint::encode::u64(self.key.public_code(), &mut buffer);
-
-        let mut inner = Vec::with_capacity(code.len() + key_bytes.len());
+        let mut inner = Vec::with_capacity(code.len() + bytes.len());
         inner.extend(code);
-        inner.extend(key_bytes);
+        inner.extend(bytes);
 
         let id = multibase::encode(Base::Base58Btc, inner);
 
