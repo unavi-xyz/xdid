@@ -1,44 +1,19 @@
 //! [xdid](https://github.com/unavi-xyz/xdid) implementation of [did:key](https://w3c-ccg.github.io/did-method-key/).
 
-use multibase::Base;
 use parser::DidKeyParser;
 use xdid_core::{
-    did::{Did, MethodId, MethodName},
+    did::Did,
     did_url::DidUrl,
     document::{Document, VerificationMethod, VerificationMethodMap},
     Method, ResolutionError,
 };
 
-pub mod keys;
+mod keys;
 mod parser;
 
+pub use keys::*;
+
 const NAME: &str = "key";
-
-pub struct DidKey {
-    key: Box<dyn keys::PublicKey>,
-}
-
-impl DidKey {
-    pub fn new(key: impl keys::PublicKey + 'static) -> Self {
-        Self { key: Box::new(key) }
-    }
-
-    pub fn to_did(&self) -> Did {
-        let bytes = self.key.public_key();
-        let code = self.key.codec().code();
-
-        let mut inner = Vec::with_capacity(code.len() + bytes.len());
-        inner.extend(code);
-        inner.extend(bytes);
-
-        let id = multibase::encode(Base::Base58Btc, inner);
-
-        Did {
-            method_name: MethodName(NAME.to_string()),
-            method_id: MethodId(id),
-        }
-    }
-}
 
 pub struct MethodDidKey;
 
@@ -75,7 +50,7 @@ impl Method for MethodDidKey {
                     id: did_url.clone(),
                     typ: "JsonWebKey2020".to_string(),
                     controller: did.clone(),
-                    public_key_jwk: Some(did_key.key.to_jwk()),
+                    public_key_jwk: Some(did_key.to_jwk()),
                     public_key_multibase: None,
                 }]),
                 authentication: Some(vec![VerificationMethod::Url(did_url.clone())]),

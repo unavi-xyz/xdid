@@ -15,7 +15,7 @@ impl Ed25519KeyPair {
         Ok(Self { pair })
     }
 
-    pub fn to_public(&self) -> Ed25519PublicKey {
+    pub fn public(&self) -> Ed25519PublicKey {
         Ed25519PublicKey(self.pair.public_key().as_ref().to_owned())
     }
 }
@@ -62,14 +62,13 @@ impl Multicodec for Ed25519Codec {
 
 #[cfg(test)]
 mod tests {
-    use crate::DidKey;
 
     use super::*;
 
     #[test]
     fn test_display() {
         let pair = Ed25519KeyPair::generate().unwrap();
-        let did = DidKey::new(pair.to_public()).to_did();
+        let did = pair.public().to_did();
         let did_str = did.to_string();
         println!("{}", did_str);
         assert!(did_str.starts_with("did:key:z6Mk"));

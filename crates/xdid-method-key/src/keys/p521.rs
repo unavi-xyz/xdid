@@ -18,7 +18,7 @@ impl P521KeyPair {
         Ok(Self { secret })
     }
 
-    pub fn to_public(&self) -> P521PublicKey {
+    pub fn public(&self) -> P521PublicKey {
         P521PublicKey(self.secret.public_key())
     }
 }
@@ -68,14 +68,14 @@ impl Multicodec for P521Codec {
 
 #[cfg(test)]
 mod tests {
-    use crate::{parser::DidKeyParser, DidKey};
+    use crate::parser::DidKeyParser;
 
     use super::*;
 
     #[test]
     fn test_display() {
         let pair = P521KeyPair::generate().unwrap();
-        let did = DidKey::new(pair.to_public()).to_did();
+        let did = pair.public().to_did();
 
         let did_str = did.to_string();
         println!("{}", did_str);
@@ -85,13 +85,13 @@ mod tests {
     #[test]
     fn test_jwk() {
         let pair = P521KeyPair::generate().unwrap();
-        let _ = pair.to_public().to_jwk();
+        let _ = pair.public().to_jwk();
     }
 
     #[test]
     fn test_parse() {
         let pair = P521KeyPair::generate().unwrap();
-        let did = DidKey::new(pair.to_public()).to_did();
+        let did = pair.public().to_did();
 
         let parser = DidKeyParser::default();
         let _ = parser.parse(&did).unwrap();

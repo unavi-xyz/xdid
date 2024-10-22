@@ -1,4 +1,8 @@
 use jose_jwk::Jwk;
+use multibase::Base;
+use xdid_core::did::{Did, MethodId, MethodName};
+
+use crate::NAME;
 
 #[cfg(feature = "ed25519")]
 pub mod ed25519;
@@ -24,6 +28,21 @@ pub trait WithMulticodec {
 pub trait PublicKey: WithMulticodec {
     fn public_key(&self) -> Vec<u8>;
     fn to_jwk(&self) -> Jwk;
+    fn to_did(&self) -> Did {
+        let bytes = self.public_key();
+        let code = self.codec().code();
+
+        let mut inner = Vec::with_capacity(code.len() + bytes.len());
+        inner.extend(code);
+        inner.extend(bytes);
+
+        let id = multibase::encode(Base::Base58Btc, inner);
+
+        Did {
+            method_name: MethodName(NAME.to_string()),
+            method_id: MethodId(id),
+        }
+    }
 }
 
 pub trait KeyParser: WithMulticodec {

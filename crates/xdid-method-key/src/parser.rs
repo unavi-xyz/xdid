@@ -2,7 +2,7 @@ use multibase::Base;
 use thiserror::Error;
 use xdid_core::did::Did;
 
-use crate::{keys::KeyParser, DidKey};
+use crate::keys::{KeyParser, PublicKey};
 
 pub struct DidKeyParser {
     parsers: Vec<Box<dyn KeyParser>>,
@@ -26,16 +26,14 @@ impl Default for DidKeyParser {
 }
 
 impl DidKeyParser {
-    pub fn parse(&self, did: &Did) -> Result<DidKey, ParseError> {
+    pub fn parse(&self, did: &Did) -> Result<Box<dyn PublicKey>, ParseError> {
         let (base, inner) = multibase::decode(&did.method_id.0)?;
         debug_assert_eq!(base, Base::Base58Btc);
 
         for parser in self.parsers.iter() {
             let code = parser.codec().code();
             if let Some(bytes) = inner.strip_prefix(code.as_slice()) {
-                return Ok(DidKey {
-                    key: parser.parse(bytes.to_vec()),
-                });
+                return Ok(parser.parse(bytes.to_vec()));
             }
         }
 
