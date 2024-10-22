@@ -3,12 +3,12 @@
 //! ## Example
 //!
 //! ```
-//! use xdid::{resolver::DidResolver, methods::key::{p256::P256KeyPair, PublicKey}};
+//! use xdid::{resolver::DidResolver, methods::key::{p256::P256KeyPair, KeyPair, PublicKey}};
 //!
 //! #[tokio::main]
 //! async fn main() {
 //!     // Generate a new did:key.
-//!     let keys = P256KeyPair::generate().unwrap();
+//!     let keys = P256KeyPair::generate();
 //!     let did = keys.public().to_did();
 //!
 //!     assert!(did.to_string().starts_with("did:key:zDn"));

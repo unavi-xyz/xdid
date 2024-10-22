@@ -30,14 +30,13 @@ impl DidResolver {
 
 #[cfg(test)]
 mod tests {
-    use xdid_method_key::{p256::P256KeyPair, PublicKey};
+    use xdid_method_key::{p256::P256KeyPair, KeyPair, PublicKey};
 
     use super::*;
 
     #[tokio::test]
     async fn test_resolve_did_key() {
-        let did = P256KeyPair::generate().unwrap().public().to_did();
-
+        let did = P256KeyPair::generate().public().to_did();
         let resolver = DidResolver::default();
         let document = resolver.resolve(&did).await.unwrap();
         assert_eq!(document.id, did);

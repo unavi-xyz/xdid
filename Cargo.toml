@@ -9,11 +9,11 @@ repository = "https://github.com/unavi-xyz/xdid"
 license = "MIT OR Apache-2.0"
 keywords = ["did"]
 
+[workspace.metadata.release]
+shared-version = true
+tag-name = "v{{version}}"
+
 [workspace.dependencies]
 jose-jwk = "0.1.2"
 serde_json = "1.0.132"
 thiserror = "1.0.64"
-
-[workspace.metadata.release]
-shared-version = true
-tag-name = "v{{version}}"

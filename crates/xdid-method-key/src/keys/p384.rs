@@ -5,29 +5,35 @@ use p384::{
 };
 use rand::rngs::OsRng;
 
-use super::{KeyParser, Multicodec, PublicKey, WithMulticodec};
+use super::{KeyPair, KeyParser, Multicodec, PublicKey, WithMulticodec};
 
 pub struct P384KeyPair {
     secret: SecretKey,
 }
 
-impl P384KeyPair {
-    pub fn generate() -> Result<Self, ring::error::Unspecified> {
+impl KeyPair for P384KeyPair {
+    fn generate() -> Self {
         let mut rng = OsRng;
         let secret = SecretKey::random(&mut rng);
-        Ok(Self { secret })
+        Self { secret }
     }
 
-    pub fn public(&self) -> P384PublicKey {
+    fn public(&self) -> impl PublicKey {
         P384PublicKey(self.secret.public_key())
+    }
+    fn public_bytes(&self) -> Box<[u8]> {
+        self.secret.public_key().to_sec1_bytes()
+    }
+    fn secret_bytes(&self) -> Box<[u8]> {
+        self.secret.to_bytes().to_vec().into()
     }
 }
 
-pub struct P384PublicKey(p384::PublicKey);
+struct P384PublicKey(p384::PublicKey);
 
 impl PublicKey for P384PublicKey {
-    fn public_key(&self) -> Vec<u8> {
-        self.0.to_encoded_point(true).as_bytes().to_vec()
+    fn bytes(&self) -> Box<[u8]> {
+        self.0.to_encoded_point(true).as_bytes().into()
     }
 
     fn to_jwk(&self) -> Jwk {
@@ -42,7 +48,7 @@ impl WithMulticodec for P384PublicKey {
     }
 }
 
-pub struct P384KeyParser;
+pub(crate) struct P384KeyParser;
 
 impl KeyParser for P384KeyParser {
     fn parse(&self, public_key: Vec<u8>) -> Box<dyn PublicKey> {
@@ -74,7 +80,7 @@ mod tests {
 
     #[test]
     fn test_display() {
-        let pair = P384KeyPair::generate().unwrap();
+        let pair = P384KeyPair::generate();
         let did = pair.public().to_did();
 
         let did_str = did.to_string();
@@ -84,13 +90,13 @@ mod tests {
 
     #[test]
     fn test_jwk() {
-        let pair = P384KeyPair::generate().unwrap();
+        let pair = P384KeyPair::generate();
         let _ = pair.public().to_jwk();
     }
 
     #[test]
     fn test_parse() {
-        let pair = P384KeyPair::generate().unwrap();
+        let pair = P384KeyPair::generate();
         let did = pair.public().to_did();
 
         let parser = DidKeyParser::default();

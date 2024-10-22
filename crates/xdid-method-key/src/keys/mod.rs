@@ -13,23 +13,19 @@ pub mod p384;
 #[cfg(feature = "p521")]
 pub mod p521;
 
-pub trait Multicodec {
-    fn code_u64(&self) -> u64;
-    fn code(&self) -> Vec<u8> {
-        let mut buffer = unsigned_varint::encode::u64_buffer();
-        unsigned_varint::encode::u64(self.code_u64(), &mut buffer).to_vec()
-    }
-}
+pub trait KeyPair {
+    fn generate() -> Self;
 
-pub trait WithMulticodec {
-    fn codec(&self) -> Box<dyn Multicodec>;
+    fn public(&self) -> impl PublicKey;
+    fn public_bytes(&self) -> Box<[u8]>;
+    fn secret_bytes(&self) -> Box<[u8]>;
 }
 
 pub trait PublicKey: WithMulticodec {
-    fn public_key(&self) -> Vec<u8>;
+    fn bytes(&self) -> Box<[u8]>;
     fn to_jwk(&self) -> Jwk;
     fn to_did(&self) -> Did {
-        let bytes = self.public_key();
+        let bytes = self.bytes();
         let code = self.codec().code();
 
         let mut inner = Vec::with_capacity(code.len() + bytes.len());
@@ -43,6 +39,18 @@ pub trait PublicKey: WithMulticodec {
             method_id: MethodId(id),
         }
     }
+}
+
+pub trait Multicodec {
+    fn code_u64(&self) -> u64;
+    fn code(&self) -> Vec<u8> {
+        let mut buffer = unsigned_varint::encode::u64_buffer();
+        unsigned_varint::encode::u64(self.code_u64(), &mut buffer).to_vec()
+    }
+}
+
+pub trait WithMulticodec {
+    fn codec(&self) -> Box<dyn Multicodec>;
 }
 
 pub trait KeyParser: WithMulticodec {
