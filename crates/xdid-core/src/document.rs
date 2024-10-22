@@ -25,7 +25,7 @@ pub struct Document {
 #[derive(Serialize, Deserialize, Debug)]
 pub enum VerificationMethod {
     Map(VerificationMethodMap),
-    URL(DidUrl),
+    Url(DidUrl),
 }
 
 #[derive(Serialize, Deserialize, Debug)]
