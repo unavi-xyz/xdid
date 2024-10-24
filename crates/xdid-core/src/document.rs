@@ -28,7 +28,7 @@ pub struct Document {
 impl Document {
     /// Returns the verification method that the provided [DidUrl] is
     /// referencing, restricted to a given [VerificationRole].
-    pub fn find_verification_method(
+    pub fn resolve_verification_method(
         &self,
         url: &DidUrl,
         role: VerificationRole,
