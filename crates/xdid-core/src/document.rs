@@ -49,16 +49,28 @@ impl Document {
                         return Some(map.clone());
                     }
                 }
-                VerificationMethod::RelativeUrl(method_url) => {
-                    for method in self.verification_method.as_deref().unwrap_or_default() {
-                        if method.id.to_relative().as_ref() == Some(method_url) {
-                            return Some(method.clone());
+                VerificationMethod::RelativeUrl(relative_url) => {
+                    return self.resolve_relative_url(relative_url);
+                }
+                VerificationMethod::Url(method_url) => {
+                    if method_url.did == url.did {
+                        if let Some(relative_url) = method_url.to_relative() {
+                            return self.resolve_relative_url(&relative_url);
                         }
+                    } else {
+                        // TODO: Support additional DID resolution?
                     }
                 }
-                VerificationMethod::Url(_) => {
-                    continue;
-                }
+            }
+        }
+
+        None
+    }
+
+    fn resolve_relative_url(&self, url: &RelativeDidUrl) -> Option<VerificationMethodMap> {
+        for method in self.verification_method.as_deref().unwrap_or_default() {
+            if method.id.to_relative().as_ref() == Some(url) {
+                return Some(method.clone());
             }
         }
 
