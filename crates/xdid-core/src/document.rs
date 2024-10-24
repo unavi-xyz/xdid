@@ -2,7 +2,10 @@ use jose_jwk::Jwk;
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, skip_serializing_none};
 
-use crate::{did::Did, did_url::DidUrl};
+use crate::{
+    did::Did,
+    did_url::{DidUrl, RelativeDidUrl},
+};
 
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
@@ -46,8 +49,15 @@ impl Document {
                         return Some(map.clone());
                     }
                 }
-                VerificationMethod::Url(method_url) => {
-                    todo!();
+                VerificationMethod::RelativeUrl(method_url) => {
+                    for method in self.verification_method.as_deref().unwrap_or_default() {
+                        if method.id.to_relative().as_ref() == Some(method_url) {
+                            return Some(method.clone());
+                        }
+                    }
+                }
+                VerificationMethod::Url(_) => {
+                    continue;
                 }
             }
         }
@@ -68,6 +78,7 @@ pub enum VerificationRole {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum VerificationMethod {
     Map(VerificationMethodMap),
+    RelativeUrl(RelativeDidUrl),
     Url(DidUrl),
 }
 
