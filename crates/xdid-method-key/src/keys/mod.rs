@@ -1,5 +1,6 @@
 use jose_jwk::Jwk;
 use multibase::Base;
+use thiserror::Error;
 use xdid_core::did::{Did, MethodId, MethodName};
 
 use crate::NAME;
@@ -13,19 +14,36 @@ pub mod p384;
 #[cfg(feature = "p521")]
 pub mod p521;
 
-pub trait KeyPair {
+pub trait DidKeyPair {
+    /// Generate a new pair of keys.
     fn generate() -> Self;
 
     fn public(&self) -> impl PublicKey;
+
+    /// Raw public key bytes.
     fn public_bytes(&self) -> Box<[u8]>;
+    /// Raw secret key bytes.
     fn secret_bytes(&self) -> Box<[u8]>;
+
+    fn sign(&self, message: &[u8]) -> Result<Vec<u8>, SignError>;
+}
+
+#[derive(Error, Debug)]
+pub enum SignError {
+    #[error("signing failed")]
+    SigningFailed,
 }
 
 pub trait PublicKey: WithMulticodec {
-    fn bytes(&self) -> Box<[u8]>;
+    /// Read the public key as DID-ready bytes.
+    /// This may be different from the raw public key bytes, as some algorithms
+    /// require compression.
+    /// https://w3c-ccg.github.io/did-method-key/#signature-method-creation-algorithm
+    fn as_did_bytes(&self) -> Box<[u8]>;
     fn to_jwk(&self) -> Jwk;
+
     fn to_did(&self) -> Did {
-        let bytes = self.bytes();
+        let bytes = self.as_did_bytes();
         let code = self.codec().code();
 
         let mut inner = Vec::with_capacity(code.len() + bytes.len());

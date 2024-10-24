@@ -30,7 +30,7 @@ impl DidResolver {
 
 #[cfg(test)]
 mod tests {
-    use xdid_method_key::{p256::P256KeyPair, KeyPair, PublicKey};
+    use xdid_method_key::{p256::P256KeyPair, DidKeyPair, PublicKey};
 
     use super::*;
 

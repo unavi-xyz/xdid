@@ -4,35 +4,54 @@ use p256::{
     SecretKey,
 };
 use rand::rngs::OsRng;
+use ring::{
+    rand::SystemRandom,
+    signature::{EcdsaKeyPair, ECDSA_P256_SHA256_ASN1_SIGNING},
+};
 
-use super::{KeyPair, KeyParser, Multicodec, PublicKey, WithMulticodec};
+use super::{DidKeyPair, KeyParser, Multicodec, PublicKey, SignError, WithMulticodec};
 
-pub struct P256KeyPair {
-    secret: SecretKey,
-}
+pub struct P256KeyPair(SecretKey);
 
-impl KeyPair for P256KeyPair {
+impl DidKeyPair for P256KeyPair {
     fn generate() -> Self {
         let mut rng = OsRng;
         let secret = SecretKey::random(&mut rng);
-        Self { secret }
+        Self(secret)
     }
 
     fn public(&self) -> impl PublicKey {
-        P256PublicKey(self.secret.public_key())
+        P256PublicKey(self.0.public_key())
     }
     fn public_bytes(&self) -> Box<[u8]> {
-        self.secret.public_key().to_sec1_bytes()
+        self.0.public_key().to_sec1_bytes()
     }
     fn secret_bytes(&self) -> Box<[u8]> {
-        self.secret.to_bytes().to_vec().into()
+        self.0.to_bytes().to_vec().into()
+    }
+
+    fn sign(&self, message: &[u8]) -> Result<Vec<u8>, SignError> {
+        let rng = SystemRandom::new();
+
+        let signer = EcdsaKeyPair::from_private_key_and_public_key(
+            &ECDSA_P256_SHA256_ASN1_SIGNING,
+            &self.0.to_bytes(),
+            &self.0.public_key().to_sec1_bytes(),
+            &rng,
+        )
+        .unwrap();
+
+        signer
+            .sign(&rng, message)
+            .map(|v| v.as_ref().to_vec())
+            .map_err(|_| SignError::SigningFailed)
     }
 }
 
 struct P256PublicKey(p256::PublicKey);
 
 impl PublicKey for P256PublicKey {
-    fn bytes(&self) -> Box<[u8]> {
+    fn as_did_bytes(&self) -> Box<[u8]> {
         self.0.to_encoded_point(true).as_bytes().into()
     }
 
@@ -74,6 +93,8 @@ impl Multicodec for P256Codec {
 
 #[cfg(test)]
 mod tests {
+    use ring::signature::{VerificationAlgorithm, ECDSA_P256_SHA256_ASN1};
+
     use crate::parser::DidKeyParser;
 
     use super::*;
@@ -101,5 +122,21 @@ mod tests {
 
         let parser = DidKeyParser::default();
         let _ = parser.parse(&did).unwrap();
+    }
+
+    #[test]
+    fn test_sign() {
+        let pair = P256KeyPair::generate();
+
+        let msg = vec![0, 1, 2, 3, 4, 5, 6, 7, 8];
+        let signature = pair.sign(&msg).unwrap();
+
+        assert!(ECDSA_P256_SHA256_ASN1
+            .verify(
+                pair.public_bytes().to_vec().as_slice().into(),
+                msg.as_slice().into(),
+                signature.as_slice().into()
+            )
+            .is_ok());
     }
 }

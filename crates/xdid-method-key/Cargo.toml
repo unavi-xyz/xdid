@@ -9,7 +9,7 @@ keywords.workspace = true
 
 [features]
 default = ["ed25519", "p256", "p384", "p521"]
-ed25519 = ["dep:ring"]
+ed25519 = []
 p256 = ["dep:p256", "dep:rand", "dep:serde_json"]
 p384 = ["dep:p384", "dep:rand", "dep:serde_json"]
 p521 = ["dep:p521", "dep:rand", "dep:serde_json"]
@@ -21,7 +21,7 @@ p256 = { version = "0.13.2", features = ["jwk"], optional = true }
 p384 = { version = "0.13.0", features = ["jwk"], optional = true }
 p521 = { version = "0.13.3", features = ["jwk"], optional = true }
 rand = { version = "0.8.5", optional = true }
-ring = { version = "0.17.8", optional = true }
+ring = "0.17.8"
 serde_json = { workspace = true, optional = true }
 thiserror.workspace = true
 unsigned-varint = { version = "0.8.0" }

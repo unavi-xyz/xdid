@@ -3,7 +3,7 @@
 //! ## Example
 //!
 //! ```
-//! use xdid::{resolver::DidResolver, methods::key::{p256::P256KeyPair, KeyPair, PublicKey}};
+//! use xdid::{resolver::DidResolver, methods::key::{p256::P256KeyPair, DidKeyPair, PublicKey}};
 //!
 //! #[tokio::main]
 //! async fn main() {

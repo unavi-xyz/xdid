@@ -4,14 +4,18 @@ use p384::{
     SecretKey,
 };
 use rand::rngs::OsRng;
+use ring::{
+    rand::SystemRandom,
+    signature::{EcdsaKeyPair, ECDSA_P384_SHA384_ASN1_SIGNING},
+};
 
-use super::{KeyPair, KeyParser, Multicodec, PublicKey, WithMulticodec};
+use super::{DidKeyPair, KeyParser, Multicodec, PublicKey, SignError, WithMulticodec};
 
 pub struct P384KeyPair {
     secret: SecretKey,
 }
 
-impl KeyPair for P384KeyPair {
+impl DidKeyPair for P384KeyPair {
     fn generate() -> Self {
         let mut rng = OsRng;
         let secret = SecretKey::random(&mut rng);
@@ -27,12 +31,29 @@ impl KeyPair for P384KeyPair {
     fn secret_bytes(&self) -> Box<[u8]> {
         self.secret.to_bytes().to_vec().into()
     }
+
+    fn sign(&self, message: &[u8]) -> Result<Vec<u8>, SignError> {
+        let rng = SystemRandom::new();
+
+        let signer = EcdsaKeyPair::from_private_key_and_public_key(
+            &ECDSA_P384_SHA384_ASN1_SIGNING,
+            &self.secret_bytes(),
+            &self.public_bytes(),
+            &rng,
+        )
+        .unwrap();
+
+        signer
+            .sign(&rng, message)
+            .map(|v| v.as_ref().to_vec())
+            .map_err(|_| SignError::SigningFailed)
+    }
 }
 
 struct P384PublicKey(p384::PublicKey);
 
 impl PublicKey for P384PublicKey {
-    fn bytes(&self) -> Box<[u8]> {
+    fn as_did_bytes(&self) -> Box<[u8]> {
         self.0.to_encoded_point(true).as_bytes().into()
     }
 
