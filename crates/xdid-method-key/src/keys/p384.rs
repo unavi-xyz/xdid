@@ -11,25 +11,24 @@ use ring::{
 
 use super::{DidKeyPair, KeyParser, Multicodec, PublicKey, SignError, Signer, WithMulticodec};
 
-pub struct P384KeyPair {
-    secret: SecretKey,
-}
+#[derive(Clone, PartialEq, Eq)]
+pub struct P384KeyPair(SecretKey);
 
 impl DidKeyPair for P384KeyPair {
     fn generate() -> Self {
         let mut rng = OsRng;
         let secret = SecretKey::random(&mut rng);
-        Self { secret }
+        Self(secret)
     }
 
     fn public(&self) -> impl PublicKey {
-        P384PublicKey(self.secret.public_key())
+        P384PublicKey(self.0.public_key())
     }
     fn public_bytes(&self) -> Box<[u8]> {
-        self.secret.public_key().to_sec1_bytes()
+        self.0.public_key().to_sec1_bytes()
     }
     fn secret_bytes(&self) -> Box<[u8]> {
-        self.secret.to_bytes().to_vec().into()
+        self.0.to_bytes().to_vec().into()
     }
 }
 
@@ -52,6 +51,7 @@ impl Signer for P384KeyPair {
     }
 }
 
+#[derive(Clone, PartialEq, Eq)]
 struct P384PublicKey(p384::PublicKey);
 
 impl PublicKey for P384PublicKey {

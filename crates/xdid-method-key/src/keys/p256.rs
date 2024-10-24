@@ -11,6 +11,7 @@ use ring::{
 
 use super::{DidKeyPair, KeyParser, Multicodec, PublicKey, SignError, Signer, WithMulticodec};
 
+#[derive(Clone, PartialEq, Eq)]
 pub struct P256KeyPair(SecretKey);
 
 impl DidKeyPair for P256KeyPair {
@@ -50,6 +51,7 @@ impl Signer for P256KeyPair {
     }
 }
 
+#[derive(Clone, PartialEq, Eq)]
 struct P256PublicKey(p256::PublicKey);
 
 impl PublicKey for P256PublicKey {
