@@ -9,7 +9,7 @@ use ring::{
     signature::{EcdsaKeyPair, ECDSA_P384_SHA384_ASN1_SIGNING},
 };
 
-use super::{DidKeyPair, KeyParser, Multicodec, PublicKey, SignError, WithMulticodec};
+use super::{DidKeyPair, KeyParser, Multicodec, PublicKey, SignError, Signer, WithMulticodec};
 
 pub struct P384KeyPair {
     secret: SecretKey,
@@ -31,7 +31,9 @@ impl DidKeyPair for P384KeyPair {
     fn secret_bytes(&self) -> Box<[u8]> {
         self.secret.to_bytes().to_vec().into()
     }
+}
 
+impl Signer for P384KeyPair {
     fn sign(&self, message: &[u8]) -> Result<Vec<u8>, SignError> {
         let rng = SystemRandom::new();
 

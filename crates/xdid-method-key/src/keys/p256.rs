@@ -9,7 +9,7 @@ use ring::{
     signature::{EcdsaKeyPair, ECDSA_P256_SHA256_ASN1_SIGNING},
 };
 
-use super::{DidKeyPair, KeyParser, Multicodec, PublicKey, SignError, WithMulticodec};
+use super::{DidKeyPair, KeyParser, Multicodec, PublicKey, SignError, Signer, WithMulticodec};
 
 pub struct P256KeyPair(SecretKey);
 
@@ -29,7 +29,9 @@ impl DidKeyPair for P256KeyPair {
     fn secret_bytes(&self) -> Box<[u8]> {
         self.0.to_bytes().to_vec().into()
     }
+}
 
+impl Signer for P256KeyPair {
     fn sign(&self, message: &[u8]) -> Result<Vec<u8>, SignError> {
         let rng = SystemRandom::new();
 

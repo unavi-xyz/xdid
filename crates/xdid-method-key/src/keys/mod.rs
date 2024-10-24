@@ -14,7 +14,11 @@ pub mod p384;
 #[cfg(feature = "p521")]
 pub mod p521;
 
-pub trait DidKeyPair {
+pub trait Signer {
+    fn sign(&self, message: &[u8]) -> Result<Vec<u8>, SignError>;
+}
+
+pub trait DidKeyPair: Signer {
     /// Generate a new pair of keys.
     fn generate() -> Self;
 
@@ -24,8 +28,6 @@ pub trait DidKeyPair {
     fn public_bytes(&self) -> Box<[u8]>;
     /// Raw secret key bytes.
     fn secret_bytes(&self) -> Box<[u8]>;
-
-    fn sign(&self, message: &[u8]) -> Result<Vec<u8>, SignError>;
 }
 
 #[derive(Error, Debug)]

@@ -1,7 +1,7 @@
 use jose_jwk::Jwk;
 use ring::{rand::SystemRandom, signature::KeyPair};
 
-use super::{DidKeyPair, KeyParser, Multicodec, PublicKey, SignError, WithMulticodec};
+use super::{DidKeyPair, KeyParser, Multicodec, PublicKey, SignError, Signer, WithMulticodec};
 
 pub struct Ed25519KeyPair {
     pair: ring::signature::Ed25519KeyPair,
@@ -24,7 +24,9 @@ impl DidKeyPair for Ed25519KeyPair {
     fn secret_bytes(&self) -> Box<[u8]> {
         todo!();
     }
+}
 
+impl Signer for Ed25519KeyPair {
     fn sign(&self, message: &[u8]) -> Result<Vec<u8>, SignError> {
         Ok(self.pair.sign(message).as_ref().to_vec())
     }
