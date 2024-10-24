@@ -95,7 +95,9 @@ impl Multicodec for P521Codec {
 
 #[cfg(test)]
 mod tests {
-    use crate::parser::DidKeyParser;
+    use ring::signature::{VerificationAlgorithm, ECDSA_P384_SHA384_ASN1};
+
+    use crate::{p384::P384KeyPair, parser::DidKeyParser};
 
     use super::*;
 
@@ -122,5 +124,21 @@ mod tests {
 
         let parser = DidKeyParser::default();
         let _ = parser.parse(&did).unwrap();
+    }
+
+    #[test]
+    fn test_sign() {
+        let pair = P384KeyPair::generate();
+
+        let msg = vec![0, 1, 2, 3, 4, 5, 6, 7, 8];
+        let signature = pair.sign(&msg).unwrap();
+
+        assert!(ECDSA_P384_SHA384_ASN1
+            .verify(
+                pair.public_bytes().to_vec().as_slice().into(),
+                msg.as_slice().into(),
+                signature.as_slice().into()
+            )
+            .is_ok());
     }
 }
