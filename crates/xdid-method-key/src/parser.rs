@@ -11,14 +11,10 @@ pub struct DidKeyParser {
 impl Default for DidKeyParser {
     fn default() -> Self {
         let parsers: Vec<Box<dyn KeyParser>> = vec![
-            #[cfg(feature = "ed25519")]
-            Box::new(crate::keys::ed25519::Ed25519KeyParser),
             #[cfg(feature = "p256")]
             Box::new(crate::keys::p256::P256KeyParser),
             #[cfg(feature = "p384")]
             Box::new(crate::keys::p384::P384KeyParser),
-            #[cfg(feature = "p521")]
-            Box::new(crate::keys::p521::P521KeyParser),
         ];
 
         Self { parsers }

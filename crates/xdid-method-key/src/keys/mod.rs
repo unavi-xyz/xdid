@@ -5,14 +5,10 @@ use xdid_core::did::{Did, MethodId, MethodName};
 
 use crate::NAME;
 
-#[cfg(feature = "ed25519")]
-pub mod ed25519;
 #[cfg(feature = "p256")]
 pub mod p256;
 #[cfg(feature = "p384")]
 pub mod p384;
-#[cfg(feature = "p521")]
-pub mod p521;
 
 pub trait Signer {
     fn sign(&self, message: &[u8]) -> Result<Vec<u8>, SignError>;
