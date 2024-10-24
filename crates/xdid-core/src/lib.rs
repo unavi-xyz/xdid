@@ -8,6 +8,7 @@ use thiserror::Error;
 pub mod did;
 pub mod did_url;
 pub mod document;
+mod uri;
 
 pub trait Method {
     fn method_name(&self) -> &'static str;

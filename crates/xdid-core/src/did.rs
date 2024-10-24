@@ -1,45 +1,37 @@
 use std::{fmt::Display, str::FromStr};
 
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use serde_json::Value;
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+use crate::did_url::ParseError;
+
+/// [DID](https://www.w3.org/TR/did-core/#did-syntax).
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct Did {
     pub method_name: MethodName,
     pub method_id: MethodId,
 }
 
-impl Serialize for Did {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        let did_string = format!("did:{}:{}", self.method_name.0, self.method_id.0);
-        serializer.serialize_str(&did_string)
+impl Display for Did {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "did:{}:{}", self.method_name.0, self.method_id.0)
     }
 }
 
-impl<'de> Deserialize<'de> for Did {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let s = String::deserialize(deserializer)?;
+impl FromStr for Did {
+    type Err = ParseError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         let mut parts = s.splitn(3, ':');
 
         if parts.next() != Some("did") {
-            return Err(serde::de::Error::custom("DID must start with 'did:'"));
+            return Err(ParseError);
         }
 
-        let method_name = parts
-            .next()
-            .ok_or_else(|| serde::de::Error::custom("Missing method name"))?;
-        let method_specific_id = parts
-            .next()
-            .ok_or_else(|| serde::de::Error::custom("Missing method-specific ID"))?;
+        let method_name = parts.next().ok_or(ParseError)?;
+        let method_specific_id = parts.next().ok_or(ParseError)?;
 
-        let method_name = MethodName::from_str(method_name).map_err(serde::de::Error::custom)?;
-        let method_id = MethodId::from_str(method_specific_id).map_err(serde::de::Error::custom)?;
+        let method_name = MethodName::from_str(method_name).map_err(|_| ParseError)?;
+        let method_id = MethodId::from_str(method_specific_id).map_err(|_| ParseError)?;
 
         Ok(Did {
             method_name,
@@ -48,25 +40,7 @@ impl<'de> Deserialize<'de> for Did {
     }
 }
 
-impl FromStr for Did {
-    type Err = serde_json::Error;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        serde_json::from_value(Value::String(s.to_string()))
-    }
-}
-
-impl Display for Did {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let value = serde_json::to_value(self).map_err(|_| std::fmt::Error)?;
-        match value {
-            Value::String(s) => write!(f, "{}", s),
-            _ => Err(std::fmt::Error),
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct MethodName(pub String);
 
 impl FromStr for MethodName {
@@ -83,7 +57,7 @@ impl FromStr for MethodName {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct MethodId(pub String);
 
 impl FromStr for MethodId {

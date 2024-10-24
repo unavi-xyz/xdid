@@ -22,13 +22,56 @@ pub struct Document {
     pub service: Option<Vec<ServiceEndpoint>>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+impl Document {
+    /// Returns the verification method that the provided [DidUrl] is
+    /// referencing, restricted to a given [VerificationRole].
+    pub fn find_verification_method(
+        &self,
+        url: &DidUrl,
+        role: VerificationRole,
+    ) -> Option<VerificationMethodMap> {
+        let methods = match role {
+            VerificationRole::Assertion => self.assertion_method.as_deref(),
+            VerificationRole::Authentication => self.authentication.as_deref(),
+            VerificationRole::CapabilityDelegation => self.capability_delegation.as_deref(),
+            VerificationRole::CapabilityInvocation => self.capability_invocation.as_deref(),
+            VerificationRole::KeyAgreement => self.key_agreement.as_deref(),
+        }
+        .unwrap_or_default();
+
+        for method in methods {
+            match method {
+                VerificationMethod::Map(map) => {
+                    if map.id == *url {
+                        return Some(map.clone());
+                    }
+                }
+                VerificationMethod::Url(method_url) => {
+                    todo!();
+                }
+            }
+        }
+
+        None
+    }
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum VerificationRole {
+    Assertion,
+    Authentication,
+    CapabilityDelegation,
+    CapabilityInvocation,
+    KeyAgreement,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum VerificationMethod {
     Map(VerificationMethodMap),
     Url(DidUrl),
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[skip_serializing_none]
 pub struct VerificationMethodMap {
     pub id: DidUrl,
@@ -40,7 +83,7 @@ pub struct VerificationMethodMap {
     pub public_key_multibase: Option<String>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde_as]
 pub struct ServiceEndpoint {
     pub id: String,
