@@ -14,7 +14,7 @@
 //!     assert!(did.to_string().starts_with("did:key:zDn"));
 //!
 //!     // Resolve the DID document.
-//!     let resolver = DidResolver::default();
+//!     let resolver = DidResolver::new().unwrap();
 //!     let document = resolver.resolve(&did).await.unwrap();
 //!
 //!     assert_eq!(document.id, did);

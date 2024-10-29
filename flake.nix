@@ -69,6 +69,7 @@
             cargo-release
             cargo-workspaces
             nodePackages.prettier
+            openssl
             rust-analyzer
           ];
         };

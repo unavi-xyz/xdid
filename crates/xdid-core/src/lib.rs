@@ -22,8 +22,10 @@ pub trait Method {
 
 #[derive(Error, Debug)]
 pub enum ResolutionError {
-    #[error("unsupported method")]
-    UnsupportedMethod,
     #[error("invalid DID")]
     InvalidDid,
+    #[error("resolution failed: {0}")]
+    ResolutionFailed(String),
+    #[error("unsupported method")]
+    UnsupportedMethod,
 }

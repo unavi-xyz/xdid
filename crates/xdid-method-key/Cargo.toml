@@ -19,7 +19,7 @@ p256 = { version = "0.13.2", features = ["jwk"], optional = true }
 p384 = { version = "0.13.0", features = ["jwk"], optional = true }
 rand = { version = "0.8.5", optional = true }
 ring = { version = "0.17.8", optional = true }
-serde_json = { version = "1.0.132", optional = true }
+serde_json = { workspace = true, optional = true }
 thiserror.workspace = true
 unsigned-varint = { version = "0.8.0" }
 xdid-core = { path = "../xdid-core", version = "0.1.0" }
