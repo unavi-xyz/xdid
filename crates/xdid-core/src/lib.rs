@@ -17,7 +17,7 @@ pub trait Method: Send + Sync {
     fn resolve(
         &self,
         did: Did,
-    ) -> Pin<Box<dyn Future<Output = Result<document::Document, ResolutionError>>>>;
+    ) -> Pin<Box<dyn Future<Output = Result<document::Document, ResolutionError>> + Send + Sync>>;
 }
 
 #[derive(Error, Debug)]

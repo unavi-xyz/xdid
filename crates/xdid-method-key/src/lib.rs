@@ -25,8 +25,13 @@ impl Method for MethodDidKey {
     fn resolve(
         &self,
         did: Did,
-    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Document, ResolutionError>>>>
-    {
+    ) -> std::pin::Pin<
+        Box<
+            dyn std::future::Future<Output = Result<xdid_core::document::Document, ResolutionError>>
+                + Send
+                + Sync,
+        >,
+    > {
         debug_assert_eq!(did.method_name.0, self.method_name());
 
         Box::pin(async move {
