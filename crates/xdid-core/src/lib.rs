@@ -10,7 +10,7 @@ pub mod did_url;
 pub mod document;
 mod uri;
 
-pub trait Method {
+pub trait Method: Send + Sync {
     fn method_name(&self) -> &'static str;
 
     /// Attempt to resolve the provided DID to its DID document.
