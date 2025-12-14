@@ -8,10 +8,6 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - uses: AdityaGarg8/remove-unwanted-software@v5
-        with:
-          remove-android: true
-          remove-cached-tools: true
       - uses: actions/checkout@v6
         with:
           ref: ${{ github.event.pull_request.head.ref }}
