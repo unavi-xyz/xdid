@@ -1,0 +1,11 @@
+[package]
+description          = "xdid implementation of did:web"
+edition.workspace    = true
+license.workspace    = true
+name                 = "xdid-method-web"
+repository.workspace = true
+version.workspace    = true
+
+[dependencies]
+reqwest        = { features = ["json"], workspace = true }
+xdid-core.path = "../xdid-core"
