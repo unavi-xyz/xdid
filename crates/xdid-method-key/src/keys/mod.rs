@@ -1,13 +1,7 @@
 use jose_jwk::Jwk;
 use multibase::Base;
 use xdid_core::did::{Did, MethodId, MethodName};
-
-#[cfg(feature = "p256")]
-use ::p256::elliptic_curve::zeroize::Zeroizing;
-#[cfg(all(feature = "p384", not(feature = "p256")))]
-use ::p384::elliptic_curve::zeroize::Zeroizing;
-#[cfg(all(not(feature = "p256"), not(feature = "p384")))]
-use ::zeroize::Zeroizing;
+use zeroize::Zeroizing;
 
 use crate::NAME;
 
