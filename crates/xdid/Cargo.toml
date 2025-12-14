@@ -17,9 +17,9 @@ did-web = ["dep:xdid-method-web"]
 [dependencies]
 smallvec            = "1.15.1"
 thiserror.workspace = true
-xdid-core.path      = "../xdid-core"
-xdid-method-key     = { optional = true, path = "../xdid-method-key" }
-xdid-method-web     = { optional = true, path = "../xdid-method-web" }
+xdid-core           = { path = "../xdid-core", version = "0.6.0" }
+xdid-method-key     = { optional = true, path = "../xdid-method-key", version = "0.6.0" }
+xdid-method-web     = { optional = true, path = "../xdid-method-web", version = "0.6.0" }
 
 [dev-dependencies]
 hyper                = { features = ["http1", "server"], version = "1.7.0" }

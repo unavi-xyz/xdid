@@ -25,5 +25,5 @@ serde_json          = { optional = true, workspace = true }
 smallvec            = "1.15.1"
 thiserror.workspace = true
 unsigned-varint     = { version = "0.8.0" }
-xdid-core.path      = "../xdid-core"
+xdid-core           = { path = "../xdid-core", version = "0.6.0" }
 zeroize             = "1.8.2"

@@ -17,4 +17,4 @@ reqwest = { default-features = false, features = [
   "rustls-tls",
   "system-proxy",
 ], version = "0.12.24" }
-xdid-core.path = "../xdid-core"
+xdid-core = { path = "../xdid-core", version = "0.6.0" }
