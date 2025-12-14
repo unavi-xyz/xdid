@@ -239,18 +239,18 @@ mod tests {
     }
 
     #[test]
-    fn test_dwn_ref() {
+    fn test_service_ref() {
         let did_url = DidUrl {
             did: Did::from_str("did:example:123").expect("valid DID"),
             path_abempty: None,
-            query: Some("service=dwn&relativeRef=/records/abc123".into()),
+            query: Some("service=my-service&relativeRef=/records/abc123".into()),
             fragment: None,
         };
 
         let serialized = did_url.to_string();
         assert_eq!(
             serialized,
-            "did:example:123?service=dwn&relativeRef=/records/abc123"
+            "did:example:123?service=my-service&relativeRef=/records/abc123"
         );
 
         let deserialized = DidUrl::from_str(&serialized).expect("deserialize failed");
