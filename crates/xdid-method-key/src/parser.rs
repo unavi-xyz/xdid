@@ -26,7 +26,7 @@ impl DidKeyParser {
         let (base, inner) = multibase::decode(&did.method_id.0)?;
         debug_assert_eq!(base, Base::Base58Btc);
 
-        for parser in self.parsers.iter() {
+        for parser in &self.parsers {
             let code = parser.codec().code();
             if let Some(bytes) = inner.strip_prefix(code.as_slice()) {
                 return Ok(parser.parse(bytes.to_vec()));

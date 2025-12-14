@@ -26,8 +26,9 @@ pub struct Document {
 }
 
 impl Document {
-    /// Returns the verification method that the provided [DidUrl] is
-    /// referencing, restricted to a given [VerificationRole].
+    /// Returns the verification method that the provided [`DidUrl`] is
+    /// referencing, restricted to a given [`VerificationRole`].
+    #[must_use]
     pub fn resolve_verification_method_url(
         &self,
         url: &DidUrl,
@@ -53,9 +54,10 @@ impl Document {
         None
     }
 
-    /// Resolves a [VerificationMethod] to its [VerificationMethodMap].
+    /// Resolves a [`VerificationMethod`] to its [`VerificationMethodMap`].
     /// For embedded maps, returns the map directly. For URL references,
-    /// resolves them against this document's verification_method array.
+    /// resolves them against this document's `verification_method` array.
+    #[must_use]
     pub fn resolve_verification_method(
         &self,
         method: &VerificationMethod,
@@ -107,7 +109,7 @@ pub enum VerificationMethod {
 }
 
 #[skip_serializing_none]
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct VerificationMethodMap {
     pub id: DidUrl,
     pub controller: Did,
@@ -118,7 +120,7 @@ pub struct VerificationMethodMap {
     pub public_key_multibase: Option<String>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 #[serde_as]
 pub struct ServiceEndpoint {
     pub id: String,

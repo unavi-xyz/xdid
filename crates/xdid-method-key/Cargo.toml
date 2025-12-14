@@ -6,6 +6,9 @@ name                 = "xdid-method-key"
 repository.workspace = true
 version.workspace    = true
 
+[lints]
+workspace = true
+
 [features]
 default = ["p256", "p384"]
 p256    = ["dep:p256", "dep:ring", "dep:serde_json"]

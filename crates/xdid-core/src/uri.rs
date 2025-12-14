@@ -28,9 +28,8 @@ pub fn is_segment(value: &str, segment: Segment) -> bool {
 
                 if c.is_ascii_hexdigit() {
                     continue;
-                } else {
-                    return false;
                 }
+                return false;
             }
         }
 
@@ -77,7 +76,7 @@ fn is_unreserved(c: char) -> bool {
 }
 
 /// sub-delims = "!" / "$" / "&" / "'" / "(" / ")" / "*" / "+" / "," / ";" / "="
-fn is_sub_delim(c: char) -> bool {
+const fn is_sub_delim(c: char) -> bool {
     c == '!'
         || c == '$'
         || c == '&'

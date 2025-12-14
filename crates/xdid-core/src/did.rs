@@ -32,7 +32,7 @@ impl FromStr for Did {
         let method_name = MethodName::from_str(method_name)?;
         let method_id = MethodId::from_str(method_specific_id)?;
 
-        Ok(Did {
+        Ok(Self {
             method_name,
             method_id,
         })
@@ -69,7 +69,7 @@ impl FromStr for MethodName {
         if s.chars()
             .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit())
         {
-            Ok(MethodName(s.to_string()))
+            Ok(Self(s.to_string()))
         } else {
             bail!("method name must contain only lowercase letters and digits")
         }
@@ -84,7 +84,7 @@ impl FromStr for MethodId {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if s.split(':').all(is_valid_idchar) {
-            Ok(MethodId(s.to_string()))
+            Ok(Self(s.to_string()))
         } else {
             bail!("method id contains invalid characters")
         }

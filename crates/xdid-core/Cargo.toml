@@ -6,6 +6,9 @@ name                 = "xdid-core"
 repository.workspace = true
 version.workspace    = true
 
+[lints]
+workspace = true
+
 [dependencies]
 anyhow.workspace    = true
 jose-jwk.workspace  = true

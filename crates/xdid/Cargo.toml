@@ -6,6 +6,9 @@ name                 = "xdid"
 repository.workspace = true
 version.workspace    = true
 
+[lints]
+workspace = true
+
 [features]
 default = ["did-key", "did-web"]
 did-key = ["dep:xdid-method-key"]

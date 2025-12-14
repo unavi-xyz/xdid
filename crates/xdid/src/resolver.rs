@@ -29,7 +29,7 @@ pub enum MethodError {
 
 impl DidResolver {
     pub async fn resolve(&self, did: &Did) -> Result<Document, ResolutionError> {
-        for method in self.methods.iter() {
+        for method in &self.methods {
             if method.method_name() == did.method_name.0 {
                 return method.resolve(did.clone()).await;
             }

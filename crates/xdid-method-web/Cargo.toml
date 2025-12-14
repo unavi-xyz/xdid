@@ -6,6 +6,9 @@ name                 = "xdid-method-web"
 repository.workspace = true
 version.workspace    = true
 
+[lints]
+workspace = true
+
 [dependencies]
 reqwest = { default-features = false, features = [
   "charset",

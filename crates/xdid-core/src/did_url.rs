@@ -83,8 +83,8 @@ impl FromStr for RelativeDidUrl {
 
         Ok(Self {
             path: RelativeDidUrlPath::from_str(path)?,
-            query: query.map(|s| s.to_string()),
-            fragment: fragment.map(|s| s.to_string()),
+            query: query.map(std::string::ToString::to_string),
+            fragment: fragment.map(std::string::ToString::to_string),
         })
     }
 }
@@ -163,7 +163,8 @@ impl FromStr for RelativeDidUrlPath {
 }
 
 impl DidUrl {
-    /// Attempts to convert the [DidUrl] into a [RelativeDidUrl].
+    /// Attempts to convert the [`DidUrl`] into a [`RelativeDidUrl`].
+    #[must_use]
     pub fn to_relative(&self) -> Option<RelativeDidUrl> {
         Some(RelativeDidUrl {
             path: match RelativeDidUrlPath::from_str(
@@ -204,7 +205,7 @@ impl FromStr for DidUrl {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let did_str = s.find(['/', '?', '#']).map(|pos| &s[..pos]).unwrap_or(s);
+        let did_str = s.find(['/', '?', '#']).map_or(s, |pos| &s[..pos]);
 
         let did = Did::from_str(did_str)?;
 
@@ -240,7 +241,7 @@ impl FromStr for DidUrl {
             Some(path)
         };
 
-        Ok(DidUrl {
+        Ok(Self {
             did,
             path_abempty,
             query,
