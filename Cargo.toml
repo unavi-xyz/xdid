@@ -25,8 +25,3 @@ port_check = "0.3.0"
 serde      = "1.0.228"
 serde_json = "1.0.145"
 thiserror  = "2.0.17"
-
-[profile.release]
-lto   = true
-panic = "abort"
-strip = true
