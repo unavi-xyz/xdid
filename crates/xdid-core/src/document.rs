@@ -1,6 +1,7 @@
 use jose_jwk::Jwk;
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, skip_serializing_none};
+use smol_str::SmolStr;
 
 use crate::{
     did::Did,
@@ -8,7 +9,7 @@ use crate::{
 };
 
 #[skip_serializing_none]
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 #[serde_as]
 pub struct Document {
@@ -100,7 +101,7 @@ pub enum VerificationRole {
     KeyAgreement,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 #[serde(untagged)]
 pub enum VerificationMethod {
     Map(Box<VerificationMethodMap>),
@@ -114,7 +115,7 @@ pub struct VerificationMethodMap {
     pub id: DidUrl,
     pub controller: Did,
     #[serde(rename = "type")]
-    pub typ: String,
+    pub typ: SmolStr,
     pub public_key_jwk: Option<Jwk>,
     /// Multibase encoded public key.
     pub public_key_multibase: Option<String>,

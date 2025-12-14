@@ -42,7 +42,7 @@ impl Method for MethodDidKey {
 
             let did_url = DidUrl {
                 did: did.clone(),
-                fragment: Some(did.method_id.0.clone()),
+                fragment: Some(did.method_id.0.clone().into()),
                 path_abempty: None,
                 query: None,
             };
@@ -53,7 +53,7 @@ impl Method for MethodDidKey {
                 controller: None,
                 verification_method: Some(vec![VerificationMethodMap {
                     id: did_url.clone(),
-                    typ: "JsonWebKey2020".to_string(),
+                    typ: "JsonWebKey2020".into(),
                     controller: did.clone(),
                     public_key_jwk: Some(did_key.to_jwk()),
                     public_key_multibase: None,

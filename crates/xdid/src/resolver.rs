@@ -1,20 +1,27 @@
+use smallvec::SmallVec;
 use thiserror::Error;
 use xdid_core::{Method, ResolutionError, did::Did, document::Document};
 
 /// Resolves DIDs using a set of provided methods.
 pub struct DidResolver {
-    pub methods: Vec<Box<dyn Method>>,
+    pub methods: SmallVec<[Box<dyn Method>; 2]>,
 }
 
 impl DidResolver {
     /// Creates a new resolver with all enabled methods.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if a method fails to initialize.
     pub fn new() -> Result<Self, MethodError> {
-        let methods: Vec<Box<dyn Method>> = vec![
-            #[cfg(feature = "did-key")]
-            Box::new(xdid_method_key::MethodDidKey),
-            #[cfg(feature = "did-web")]
-            Box::new(xdid_method_web::MethodDidWeb::new()?),
-        ];
+        #[allow(unused_mut)]
+        let mut methods = SmallVec::<[Box<dyn Method>; 2]>::new();
+
+        #[cfg(feature = "did-key")]
+        methods.push(Box::new(xdid_method_key::MethodDidKey));
+
+        #[cfg(feature = "did-web")]
+        methods.push(Box::new(xdid_method_web::MethodDidWeb::new()?));
 
         Ok(Self { methods })
     }
@@ -28,6 +35,11 @@ pub enum MethodError {
 }
 
 impl DidResolver {
+    /// Resolve a DID to its document.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the DID method is unsupported or resolution fails.
     pub async fn resolve(&self, did: &Did) -> Result<Document, ResolutionError> {
         for method in &self.methods {
             if method.method_name() == did.method_name.0 {
@@ -39,13 +51,8 @@ impl DidResolver {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use std::{net::SocketAddr, str::FromStr, sync::Arc};
-
-    use hyper::{Response, server::conn::http1::Builder, service::service_fn};
-    use hyper_util::rt::TokioIo;
-    use tokio::net::TcpListener;
+#[cfg(all(test, feature = "did-key"))]
+mod did_key_tests {
     use xdid_method_key::{DidKeyPair, PublicKey, p256::P256KeyPair};
 
     use super::*;
@@ -53,25 +60,42 @@ mod tests {
     #[tokio::test]
     async fn test_resolve_did_key() {
         let did = P256KeyPair::generate().public().to_did();
-        let resolver = DidResolver::new().unwrap();
-        let document = resolver.resolve(&did).await.unwrap();
+        let resolver = DidResolver::new().expect("resolver construction should succeed");
+        let document = resolver
+            .resolve(&did)
+            .await
+            .expect("resolution should succeed");
         assert_eq!(document.id, did);
     }
+}
+
+#[cfg(all(test, feature = "did-web"))]
+mod did_web_tests {
+    use std::{net::SocketAddr, str::FromStr, sync::Arc};
+
+    use hyper::{Response, server::conn::http1::Builder, service::service_fn};
+    use hyper_util::rt::TokioIo;
+    use tokio::net::TcpListener;
+
+    use super::*;
 
     #[tokio::test]
     async fn test_resolve_did_web() {
         let did = serve_did_web().await;
-        let resolver = DidResolver::new().unwrap();
-        let document = resolver.resolve(&did).await.unwrap();
+        let resolver = DidResolver::new().expect("resolver construction should succeed");
+        let document = resolver
+            .resolve(&did)
+            .await
+            .expect("resolution should succeed");
         assert_eq!(document.id, did);
     }
 
     async fn serve_did_web() -> Did {
-        let port = port_check::free_local_port().unwrap();
+        let port = port_check::free_local_port().expect("free port should be available");
         let addr = SocketAddr::from(([127, 0, 0, 1], port));
-        let listener = TcpListener::bind(addr).await.unwrap();
+        let listener = TcpListener::bind(addr).await.expect("listener should bind");
 
-        let did = Did::from_str(&format!("did:web:localhost%3A{}", port)).unwrap();
+        let did = Did::from_str(&format!("did:web:localhost%3A{port}")).expect("valid DID");
 
         let doc = Document {
             id: did.clone(),
@@ -86,7 +110,7 @@ mod tests {
             verification_method: None,
         };
 
-        let data = Arc::new(serde_json::to_string(&doc).unwrap());
+        let data = Arc::new(serde_json::to_string(&doc).expect("serialization should succeed"));
 
         let handler = move |_| {
             let data = data.clone();
@@ -95,20 +119,23 @@ mod tests {
 
         tokio::spawn(async move {
             loop {
-                let (stream, _) = listener.accept().await.unwrap();
+                let (stream, _) = listener
+                    .accept()
+                    .await
+                    .expect("listener should accept connections");
                 let io = TokioIo::new(stream);
 
                 if let Err(e) = Builder::new()
                     .serve_connection(io, service_fn(&handler))
                     .await
                 {
-                    panic!("Error serving connection: {:?}", e);
+                    panic!("Error serving connection: {e:?}");
                 }
             }
         });
 
-        let url = format!("http://{}", addr);
-        println!("Serving {} at {}", did, url);
+        let url = format!("http://{addr}");
+        println!("Serving {did} at {url}");
 
         did
     }

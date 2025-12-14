@@ -5,7 +5,10 @@ pub fn parse_url(did: &Did) -> String {
     // web-did = "did:web:" domain-name * (":" path)
     let mut split = did.method_id.0.split(':');
 
-    let domain = split.next().unwrap().replace("%3A", ":");
+    let domain = split
+        .next()
+        .expect("method_id validated by Did::from_str")
+        .replace("%3A", ":");
 
     // Don't use HTTPS for localhost to make testing easier.
     let mut url = if domain.starts_with("localhost:") {
@@ -44,28 +47,28 @@ mod tests {
 
     #[test]
     fn test_parse_no_path() {
-        let did = Did::from_str("did:web:w3c-ccg.github.io").unwrap();
+        let did = Did::from_str("did:web:w3c-ccg.github.io").expect("valid DID");
         let url = parse_url(&did);
         assert_eq!(url, "https://w3c-ccg.github.io/.well-known/did.json");
     }
 
     #[test]
     fn test_parse_path() {
-        let did = Did::from_str("did:web:w3c-ccg.github.io:user:alice").unwrap();
+        let did = Did::from_str("did:web:w3c-ccg.github.io:user:alice").expect("valid DID");
         let url = parse_url(&did);
         assert_eq!(url, "https://w3c-ccg.github.io/user/alice/did.json");
     }
 
     #[test]
     fn test_parse_port() {
-        let did = Did::from_str("did:web:example.com%3A3000:user:alice").unwrap();
+        let did = Did::from_str("did:web:example.com%3A3000:user:alice").expect("valid DID");
         let url = parse_url(&did);
         assert_eq!(url, "https://example.com:3000/user/alice/did.json");
     }
 
     #[test]
     fn test_parse_localhost_http() {
-        let did = Did::from_str("did:web:localhost%3A3000").unwrap();
+        let did = Did::from_str("did:web:localhost%3A3000").expect("valid DID");
         let url = parse_url(&did);
         assert_eq!(url, "http://localhost:3000/.well-known/did.json");
     }

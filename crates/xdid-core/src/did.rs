@@ -2,6 +2,7 @@ use std::{fmt::Display, str::FromStr};
 
 use anyhow::bail;
 use serde::{Deserialize, Serialize};
+use smol_str::SmolStr;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 /// A [Decentralized Identifier](https://www.w3.org/TR/did-core/#did-syntax).
@@ -26,8 +27,10 @@ impl FromStr for Did {
             bail!("does not start with did")
         }
 
-        let method_name = parts.next().ok_or(anyhow::anyhow!("no method"))?;
-        let method_specific_id = parts.next().ok_or(anyhow::anyhow!("no method id"))?;
+        let method_name = parts.next().ok_or_else(|| anyhow::anyhow!("no method"))?;
+        let method_specific_id = parts
+            .next()
+            .ok_or_else(|| anyhow::anyhow!("no method id"))?;
 
         let method_name = MethodName::from_str(method_name)?;
         let method_id = MethodId::from_str(method_specific_id)?;
@@ -55,12 +58,12 @@ impl<'de> Deserialize<'de> for Did {
         D: serde::Deserializer<'de>,
     {
         let s = String::deserialize(deserializer)?;
-        Self::from_str(&s).map_err(|_| serde::de::Error::custom("parse err"))
+        Self::from_str(&s).map_err(|e| serde::de::Error::custom(format!("invalid DID: {e}")))
     }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
-pub struct MethodName(pub String);
+pub struct MethodName(pub SmolStr);
 
 impl FromStr for MethodName {
     type Err = anyhow::Error;
@@ -69,7 +72,7 @@ impl FromStr for MethodName {
         if s.chars()
             .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit())
         {
-            Ok(Self(s.to_string()))
+            Ok(Self(s.into()))
         } else {
             bail!("method name must contain only lowercase letters and digits")
         }
@@ -109,7 +112,7 @@ mod tests {
     #[test]
     fn test_did_example() {
         let did = Did {
-            method_name: MethodName("example".to_string()),
+            method_name: MethodName("example".into()),
             method_id: MethodId("1234-5678-abcdef".to_string()),
         };
 

@@ -2,11 +2,14 @@ use std::{fmt::Display, str::FromStr};
 
 use anyhow::bail;
 use serde::{Deserialize, Serialize};
+use smol_str::SmolStr;
 
 use crate::{
     did::Did,
     uri::{Segment, is_segment},
 };
+
+use super::{RelativeDidUrl, RelativeDidUrlPath};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DidUrl {
@@ -16,10 +19,10 @@ pub struct DidUrl {
     pub path_abempty: Option<String>,
     /// [DID query](https://www.w3.org/TR/did-core/#query). `query` component from
     /// [RFC 3986](https://www.rfc-editor.org/rfc/rfc3986#section-3.3).
-    pub query: Option<String>,
+    pub query: Option<SmolStr>,
     /// [DID fragment](https://www.w3.org/TR/did-core/#fragment). `fragment` component from
     /// [RFC 3986](https://www.rfc-editor.org/rfc/rfc3986#section-3.3).
-    pub fragment: Option<String>,
+    pub fragment: Option<SmolStr>,
 }
 
 impl Serialize for DidUrl {
@@ -38,127 +41,7 @@ impl<'de> Deserialize<'de> for DidUrl {
         D: serde::Deserializer<'de>,
     {
         let s = String::deserialize(deserializer)?;
-        Self::from_str(&s).map_err(|_| serde::de::Error::custom("parse err"))
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct RelativeDidUrl {
-    pub path: RelativeDidUrlPath,
-    /// [DID query](https://www.w3.org/TR/did-core/#query) ([RFC 3986 - 3.4. Query](https://www.rfc-editor.org/rfc/rfc3986#section-3.4))
-    pub query: Option<String>,
-    /// [DID fragment](https://www.w3.org/TR/did-core/#fragment) ([RFC 3986 - 3.5. Fragment](https://www.rfc-editor.org/rfc/rfc3986#section-3.5))
-    pub fragment: Option<String>,
-}
-
-impl Display for RelativeDidUrl {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let path = self.path.to_string();
-        let query = match &self.query {
-            Some(q) => format!("?{q}"),
-            None => String::new(),
-        };
-        let fragment = match &self.fragment {
-            Some(f) => format!("#{f}"),
-            None => String::new(),
-        };
-        f.write_fmt(format_args!("{path}{query}{fragment}"))
-    }
-}
-
-impl FromStr for RelativeDidUrl {
-    type Err = anyhow::Error;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let (path, query, fragment) = match s.split_once('?') {
-            Some((path, rest)) => match rest.split_once('#') {
-                Some((query, fragment)) => (path, Some(query), Some(fragment)),
-                None => (path, Some(rest), None),
-            },
-            None => match s.split_once('#') {
-                Some((path, fragment)) => (path, None, Some(fragment)),
-                None => (s, None, None),
-            },
-        };
-
-        Ok(Self {
-            path: RelativeDidUrlPath::from_str(path)?,
-            query: query.map(std::string::ToString::to_string),
-            fragment: fragment.map(std::string::ToString::to_string),
-        })
-    }
-}
-
-impl Serialize for RelativeDidUrl {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        let v = self.to_string();
-        serializer.serialize_str(&v)
-    }
-}
-
-impl<'de> Deserialize<'de> for RelativeDidUrl {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let s = String::deserialize(deserializer)?;
-        Self::from_str(&s).map_err(|_| serde::de::Error::custom("parse err"))
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum RelativeDidUrlPath {
-    /// Absolute-path reference. `path-absolute` from [RFC 3986](https://tools.ietf.org/html/rfc3986#section-3.3)
-    Absolute(String),
-    /// Relative-path reference. `path-noscheme` from [RFC 3986](https://tools.ietf.org/html/rfc3986#section-3.3)
-    NoScheme(String),
-    /// Empty path. `path-empty` from [RFC 3986](https://tools.ietf.org/html/rfc3986#section-3.3)
-    Empty,
-}
-
-impl Display for RelativeDidUrlPath {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let data = match self {
-            Self::Absolute(s) | Self::NoScheme(s) => s.as_str(),
-            Self::Empty => "",
-        };
-        f.write_str(data)
-    }
-}
-
-impl FromStr for RelativeDidUrlPath {
-    type Err = anyhow::Error;
-
-    fn from_str(path: &str) -> Result<Self, Self::Err> {
-        if path.is_empty() {
-            return Ok(Self::Empty);
-        }
-        if path.starts_with('/') {
-            // path-absolute = "/" [ segment-nz *( "/" segment ) ]
-            if path.len() >= 2 && path.chars().nth(1) == Some('/') {
-                bail!("double slash at start")
-            }
-
-            if !path
-                .split('/')
-                .skip(1)
-                .all(|v| is_segment(v, Segment::Base))
-            {
-                bail!("invalid segment")
-            }
-
-            Ok(Self::Absolute(path.to_string()))
-        } else {
-            // path-noscheme = segment-nz-nc *( "/" segment )
-            if !path.split('/').all(|v| is_segment(v, Segment::NzNc)) {
-                bail!("invalid segment")
-            }
-
-            Ok(Self::NoScheme(path.to_string()))
-        }
+        Self::from_str(&s).map_err(|e| serde::de::Error::custom(format!("invalid DID URL: {e}")))
     }
 }
 
@@ -213,14 +96,16 @@ impl FromStr for DidUrl {
         let mut query = None;
         let mut fragment = None;
 
-        let mut rest = s.strip_prefix(did_str).unwrap();
+        let mut rest = s
+            .strip_prefix(did_str)
+            .expect("DID string prefix already validated");
         if let Some((before_fragment, frag)) = rest.split_once('#') {
-            fragment = Some(frag.to_string());
+            fragment = Some(frag.into());
             rest = before_fragment;
         }
 
         if let Some((before_query, qry)) = rest.split_once('?') {
-            query = Some(qry.to_string());
+            query = Some(qry.into());
             rest = before_query;
         }
 
@@ -257,10 +142,10 @@ mod tests {
     #[test]
     fn test_full() {
         let did_url = DidUrl {
-            did: Did::from_str("did:example:123").unwrap(),
+            did: Did::from_str("did:example:123").expect("valid DID"),
             path_abempty: Some("/path/to/resource".to_string()),
-            query: Some("key=value".to_string()),
-            fragment: Some("section".to_string()),
+            query: Some("key=value".into()),
+            fragment: Some("section".into()),
         };
 
         let serialized = did_url.to_string();
@@ -276,10 +161,10 @@ mod tests {
     #[test]
     fn test_no_path() {
         let did_url = DidUrl {
-            did: Did::from_str("did:example:123").unwrap(),
+            did: Did::from_str("did:example:123").expect("valid DID"),
             path_abempty: None,
-            query: Some("key=value".to_string()),
-            fragment: Some("section".to_string()),
+            query: Some("key=value".into()),
+            fragment: Some("section".into()),
         };
 
         let serialized = did_url.to_string();
@@ -292,10 +177,10 @@ mod tests {
     #[test]
     fn test_no_query() {
         let did_url = DidUrl {
-            did: Did::from_str("did:example:123").unwrap(),
+            did: Did::from_str("did:example:123").expect("valid DID"),
             path_abempty: Some("/path/to/resource".to_string()),
             query: None,
-            fragment: Some("section".to_string()),
+            fragment: Some("section".into()),
         };
 
         let serialized = did_url.to_string();
@@ -308,9 +193,9 @@ mod tests {
     #[test]
     fn test_no_fragment() {
         let did_url = DidUrl {
-            did: Did::from_str("did:example:123").unwrap(),
+            did: Did::from_str("did:example:123").expect("valid DID"),
             path_abempty: Some("/path/to/resource".to_string()),
-            query: Some("key=value".to_string()),
+            query: Some("key=value".into()),
             fragment: None,
         };
 
@@ -324,7 +209,7 @@ mod tests {
     #[test]
     fn test_did_plain() {
         let did_url = DidUrl {
-            did: Did::from_str("did:example:123").unwrap(),
+            did: Did::from_str("did:example:123").expect("valid DID"),
             path_abempty: None,
             query: None,
             fragment: None,
@@ -340,9 +225,9 @@ mod tests {
     #[test]
     fn test_compound_query() {
         let did_url = DidUrl {
-            did: Did::from_str("did:example:123").unwrap(),
+            did: Did::from_str("did:example:123").expect("valid DID"),
             path_abempty: None,
-            query: Some("a=1&b=2".to_string()),
+            query: Some("a=1&b=2".into()),
             fragment: None,
         };
 
@@ -356,9 +241,9 @@ mod tests {
     #[test]
     fn test_dwn_ref() {
         let did_url = DidUrl {
-            did: Did::from_str("did:example:123").unwrap(),
+            did: Did::from_str("did:example:123").expect("valid DID"),
             path_abempty: None,
-            query: Some("service=dwn&relativeRef=/records/abc123".to_string()),
+            query: Some("service=dwn&relativeRef=/records/abc123".into()),
             fragment: None,
         };
 

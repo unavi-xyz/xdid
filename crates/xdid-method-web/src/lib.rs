@@ -14,6 +14,11 @@ pub struct MethodDidWeb {
 }
 
 impl MethodDidWeb {
+    /// Create a new did:web resolver.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the HTTP client cannot be constructed.
     pub fn new() -> Result<Self, reqwest::Error> {
         let client = ClientBuilder::new().build()?;
         Ok(Self { client })

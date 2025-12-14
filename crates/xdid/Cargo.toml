@@ -15,6 +15,7 @@ did-key = ["dep:xdid-method-key"]
 did-web = ["dep:xdid-method-web"]
 
 [dependencies]
+smallvec            = "1.15.1"
 thiserror.workspace = true
 xdid-core.path      = "../xdid-core"
 xdid-method-key     = { optional = true, path = "../xdid-method-key" }

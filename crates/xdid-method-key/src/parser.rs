@@ -1,21 +1,24 @@
 use multibase::Base;
+use smallvec::SmallVec;
 use thiserror::Error;
 use xdid_core::did::Did;
 
 use crate::keys::{KeyParser, PublicKey};
 
 pub struct DidKeyParser {
-    parsers: Vec<Box<dyn KeyParser>>,
+    parsers: SmallVec<[Box<dyn KeyParser>; 2]>,
 }
 
 impl Default for DidKeyParser {
     fn default() -> Self {
-        let parsers: Vec<Box<dyn KeyParser>> = vec![
-            #[cfg(feature = "p256")]
-            Box::new(crate::keys::p256::P256KeyParser),
-            #[cfg(feature = "p384")]
-            Box::new(crate::keys::p384::P384KeyParser),
-        ];
+        #[allow(unused_mut)]
+        let mut parsers = SmallVec::<[Box<dyn KeyParser>; 2]>::new();
+
+        #[cfg(feature = "p256")]
+        parsers.push(Box::new(crate::keys::p256::P256KeyParser));
+
+        #[cfg(feature = "p384")]
+        parsers.push(Box::new(crate::keys::p384::P384KeyParser));
 
         Self { parsers }
     }
@@ -29,7 +32,7 @@ impl DidKeyParser {
         for parser in &self.parsers {
             let code = parser.codec().code();
             if let Some(bytes) = inner.strip_prefix(code.as_slice()) {
-                return Ok(parser.parse(bytes.to_vec()));
+                return parser.parse(bytes.to_vec());
             }
         }
 
@@ -43,4 +46,6 @@ pub enum ParseError {
     Decode(#[from] multibase::Error),
     #[error("codec not supported")]
     CodecNotSupported,
+    #[error("invalid public key")]
+    InvalidPublicKey,
 }

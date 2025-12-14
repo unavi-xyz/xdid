@@ -13,7 +13,7 @@ use ring::{
     signature::{ECDSA_P384_SHA384_ASN1_SIGNING, EcdsaKeyPair},
 };
 
-use super::{DidKeyPair, KeyParser, Multicodec, PublicKey, SignError, Signer, WithMulticodec};
+use super::{DidKeyPair, KeyParser, Multicodec, PublicKey, Signer, WithMulticodec};
 
 #[derive(Clone, PartialEq, Eq)]
 pub struct P384KeyPair(SecretKey);
@@ -40,7 +40,7 @@ impl DidKeyPair for P384KeyPair {
 }
 
 impl Signer for P384KeyPair {
-    fn sign(&self, message: &[u8]) -> Result<Vec<u8>, SignError> {
+    fn sign(&self, message: &[u8]) -> anyhow::Result<Vec<u8>> {
         let rng = SystemRandom::new();
 
         let signer = EcdsaKeyPair::from_private_key_and_public_key(
@@ -49,12 +49,12 @@ impl Signer for P384KeyPair {
             &self.0.public_key().to_sec1_bytes(),
             &rng,
         )
-        .unwrap();
+        .map_err(|_| anyhow::anyhow!("failed to create key pair from private key"))?;
 
         signer
             .sign(&rng, message)
             .map(|v| v.as_ref().to_vec())
-            .map_err(|_| SignError::SigningFailed)
+            .map_err(|_| anyhow::anyhow!("signing failed"))
     }
 }
 
@@ -71,7 +71,7 @@ impl PublicKey for P384PublicKey {
 
     fn to_jwk(&self) -> Jwk {
         let jwk_str = self.0.to_jwk_string();
-        serde_json::from_str(&jwk_str).unwrap()
+        serde_json::from_str(&jwk_str).expect("p384 crate guarantees valid JWK")
     }
 }
 
@@ -84,10 +84,13 @@ impl WithMulticodec for P384PublicKey {
 pub(crate) struct P384KeyParser;
 
 impl KeyParser for P384KeyParser {
-    fn parse(&self, public_key: Vec<u8>) -> Box<dyn PublicKey> {
-        let point = p384::EncodedPoint::from_bytes(public_key).unwrap();
-        let key = p384::PublicKey::from_encoded_point(&point).unwrap();
-        Box::new(P384PublicKey(key))
+    fn parse(&self, public_key: Vec<u8>) -> Result<Box<dyn PublicKey>, crate::parser::ParseError> {
+        let point = p384::EncodedPoint::from_bytes(public_key)
+            .map_err(|_| crate::parser::ParseError::InvalidPublicKey)?;
+        let key = p384::PublicKey::from_encoded_point(&point)
+            .into_option()
+            .ok_or(crate::parser::ParseError::InvalidPublicKey)?;
+        Ok(Box::new(P384PublicKey(key)))
     }
 }
 
@@ -119,7 +122,7 @@ mod tests {
         let did = pair.public().to_did();
 
         let did_str = did.to_string();
-        println!("{}", did_str);
+        println!("{did_str}");
         assert!(did_str.starts_with("did:key:z82"));
     }
 
@@ -135,7 +138,7 @@ mod tests {
         let did = pair.public().to_did();
 
         let parser = DidKeyParser::default();
-        let _ = parser.parse(&did).unwrap();
+        let _ = parser.parse(&did).expect("parse should succeed");
     }
 
     #[test]
@@ -143,7 +146,7 @@ mod tests {
         let pair = P384KeyPair::generate();
 
         let msg = vec![0, 1, 2, 3, 4, 5, 6, 7, 8];
-        let signature = pair.sign(&msg).unwrap();
+        let signature = pair.sign(&msg).expect("signing should succeed");
 
         assert!(
             ECDSA_P384_SHA384_ASN1
