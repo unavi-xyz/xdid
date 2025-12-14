@@ -28,7 +28,7 @@ pub struct Document {
 impl Document {
     /// Returns the verification method that the provided [DidUrl] is
     /// referencing, restricted to a given [VerificationRole].
-    pub fn resolve_verification_method(
+    pub fn resolve_verification_method_url(
         &self,
         url: &DidUrl,
         role: VerificationRole,
@@ -43,28 +43,39 @@ impl Document {
         .unwrap_or_default();
 
         for method in methods {
-            match method {
-                VerificationMethod::Map(map) => {
-                    if map.id == *url {
-                        return Some(*map.clone());
-                    }
-                }
-                VerificationMethod::RelativeUrl(relative_url) => {
-                    return self.resolve_relative_url(relative_url);
-                }
-                VerificationMethod::Url(method_url) => {
-                    if method_url.did == url.did {
-                        if let Some(relative_url) = method_url.to_relative() {
-                            return self.resolve_relative_url(&relative_url);
-                        }
-                    } else {
-                        // TODO: Support additional DID resolution?
-                    }
-                }
+            if let Some(resolved) = self.resolve_verification_method(method)
+                && resolved.id == *url
+            {
+                return Some(resolved);
             }
         }
 
         None
+    }
+
+    /// Resolves a [VerificationMethod] to its [VerificationMethodMap].
+    /// For embedded maps, returns the map directly. For URL references,
+    /// resolves them against this document's verification_method array.
+    pub fn resolve_verification_method(
+        &self,
+        method: &VerificationMethod,
+    ) -> Option<VerificationMethodMap> {
+        match method {
+            VerificationMethod::Map(map) => Some(*map.clone()),
+            VerificationMethod::RelativeUrl(relative_url) => {
+                self.resolve_relative_url(relative_url)
+            }
+            VerificationMethod::Url(url) => {
+                // Only resolve if the URL references this document.
+                if url.did == self.id
+                    && let Some(relative_url) = url.to_relative()
+                {
+                    return self.resolve_relative_url(&relative_url);
+                }
+                // TODO: Support additional DID resolution?
+                None
+            }
+        }
     }
 
     fn resolve_relative_url(&self, url: &RelativeDidUrl) -> Option<VerificationMethodMap> {
