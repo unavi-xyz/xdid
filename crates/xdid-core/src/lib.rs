@@ -13,11 +13,18 @@ mod uri;
 pub trait Method: Send + Sync {
     fn method_name(&self) -> &'static str;
 
-    /// Attempt to resolve the provided DID to its DID document.
+    #[cfg(not(target_family = "wasm"))]
     fn resolve(
         &self,
         did: Did,
     ) -> Pin<Box<dyn Future<Output = Result<document::Document, ResolutionError>> + Send + Sync>>;
+
+    // WASM futures often can't be `Send + Sync`, such as HTTP fetches.
+    #[cfg(target_family = "wasm")]
+    fn resolve(
+        &self,
+        did: Did,
+    ) -> Pin<Box<dyn Future<Output = Result<document::Document, ResolutionError>>>>;
 }
 
 #[derive(Error, Debug)]

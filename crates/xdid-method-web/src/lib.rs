@@ -30,6 +30,7 @@ impl Method for MethodDidWeb {
         NAME
     }
 
+    #[cfg(not(target_family = "wasm"))]
     fn resolve(
         &self,
         did: Did,
@@ -40,26 +41,39 @@ impl Method for MethodDidWeb {
                 + Sync,
         >,
     > {
-        debug_assert_eq!(did.method_name.0, self.method_name());
-
-        let client = self.client.clone();
-        let url = parse::parse_url(&did);
-
-        Box::pin(async move {
-            let req = client
-                .get(url)
-                .build()
-                .map_err(|_| ResolutionError::InvalidDid)?;
-
-            let doc = client
-                .execute(req)
-                .await
-                .map_err(|e| ResolutionError::ResolutionFailed(e.to_string()))?
-                .json::<Document>()
-                .await
-                .map_err(|e| ResolutionError::ResolutionFailed(e.to_string()))?;
-
-            Ok(doc)
-        })
+        Box::pin(resolve_inner(self.client.clone(), did))
     }
+
+    #[cfg(target_family = "wasm")]
+    fn resolve(
+        &self,
+        did: Did,
+    ) -> std::pin::Pin<
+        Box<
+            dyn std::future::Future<Output = Result<xdid_core::document::Document, ResolutionError>>,
+        >,
+    > {
+        Box::pin(resolve_inner(self.client.clone(), did))
+    }
+}
+
+async fn resolve_inner(client: Client, did: Did) -> Result<Document, ResolutionError> {
+    debug_assert_eq!(did.method_name.0, NAME);
+
+    let url = parse::parse_url(&did);
+
+    let req = client
+        .get(url)
+        .build()
+        .map_err(|_| ResolutionError::InvalidDid)?;
+
+    let doc = client
+        .execute(req)
+        .await
+        .map_err(|e| ResolutionError::ResolutionFailed(e.to_string()))?
+        .json::<Document>()
+        .await
+        .map_err(|e| ResolutionError::ResolutionFailed(e.to_string()))?;
+
+    Ok(doc)
 }
