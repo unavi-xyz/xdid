@@ -30,8 +30,17 @@ impl Method for MethodDidWeb {
         NAME
     }
 
+    #[cfg(not(target_family = "wasm"))]
     fn resolve(&self, did: Did) -> MethodFuture<Result<Document, ResolutionError>> {
         Box::pin(resolve_inner(self.client.clone(), did))
+    }
+
+    #[cfg(target_family = "wasm")]
+    fn resolve(&self, did: Did) -> MethodFuture<Result<Document, ResolutionError>> {
+        Box::pin(send_wrapper::SendWrapper::new(resolve_inner(
+            self.client.clone(),
+            did,
+        )))
     }
 }
 

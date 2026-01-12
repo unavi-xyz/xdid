@@ -11,18 +11,7 @@ pub mod document;
 mod uri;
 
 /// Boxed future for [`Method::resolve`].
-///
-/// On native targets, requires `Send + Sync` for multi-threaded executors.
-/// On WASM, these bounds are omitted since browser APIs produce non-Send futures.
-#[cfg(not(target_family = "wasm"))]
 pub type MethodFuture<T> = Pin<Box<dyn Future<Output = T> + Send + Sync>>;
-
-/// Boxed future for [`Method::resolve`].
-///
-/// On native targets, requires `Send + Sync` for multi-threaded executors.
-/// On WASM, these bounds are omitted since browser APIs produce non-Send futures.
-#[cfg(target_family = "wasm")]
-pub type MethodFuture<T> = Pin<Box<dyn Future<Output = T>>>;
 
 pub trait Method: Send + Sync {
     fn method_name(&self) -> &'static str;

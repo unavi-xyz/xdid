@@ -12,3 +12,6 @@ workspace = true
 [dependencies]
 reqwest   = { features = ["json"], version = "0.13.1" }
 xdid-core = { path = "../xdid-core", version = "0.6.0" }
+
+[target.'cfg(target_family = "wasm")'.dependencies]
+send_wrapper = { version = "0.6.0", features = ["futures"] }
