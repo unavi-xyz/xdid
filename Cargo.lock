@@ -2610,7 +2610,6 @@ dependencies = [
  "multibase",
  "p256",
  "p384",
- "ring",
  "serde_json",
  "smallvec",
  "thiserror 2.0.17",

@@ -5,12 +5,9 @@ use p256::{
 };
 use p384::{
     SecretKey,
+    ecdsa::{Signature, SigningKey, signature::SignerMut},
     elliptic_curve::sec1::{FromEncodedPoint, ToEncodedPoint},
     pkcs8::EncodePrivateKey,
-};
-use ring::{
-    rand::SystemRandom,
-    signature::{ECDSA_P384_SHA384_ASN1_SIGNING, EcdsaKeyPair},
 };
 
 use super::{DidKeyPair, KeyParser, Multicodec, PublicKey, Signer, WithMulticodec};
@@ -41,20 +38,9 @@ impl DidKeyPair for P384KeyPair {
 
 impl Signer for P384KeyPair {
     fn sign(&self, message: &[u8]) -> anyhow::Result<Vec<u8>> {
-        let rng = SystemRandom::new();
-
-        let signer = EcdsaKeyPair::from_private_key_and_public_key(
-            &ECDSA_P384_SHA384_ASN1_SIGNING,
-            &self.0.to_bytes(),
-            &self.0.public_key().to_sec1_bytes(),
-            &rng,
-        )
-        .map_err(|_| anyhow::anyhow!("failed to create key pair from private key"))?;
-
-        signer
-            .sign(&rng, message)
-            .map(|v| v.as_ref().to_vec())
-            .map_err(|_| anyhow::anyhow!("signing failed"))
+        let mut signing_key = SigningKey::from(&self.0);
+        let sig: Signature = signing_key.sign(message);
+        Ok(sig.to_der().as_bytes().to_vec())
     }
 }
 
@@ -110,7 +96,7 @@ impl Multicodec for P384Codec {
 
 #[cfg(test)]
 mod tests {
-    use ring::signature::{ECDSA_P384_SHA384_ASN1, VerificationAlgorithm};
+    use p384::ecdsa::{Signature as EcdsaSignature, VerifyingKey, signature::Verifier};
 
     use crate::parser::DidKeyParser;
 
@@ -142,20 +128,16 @@ mod tests {
     }
 
     #[test]
-    fn test_sign() {
+    fn test_sign_verify() {
         let pair = P384KeyPair::generate();
 
         let msg = vec![0, 1, 2, 3, 4, 5, 6, 7, 8];
         let signature = pair.sign(&msg).expect("signing should succeed");
 
-        assert!(
-            ECDSA_P384_SHA384_ASN1
-                .verify(
-                    pair.public().to_sec1_bytes().as_ref().into(),
-                    msg.as_slice().into(),
-                    signature.as_slice().into()
-                )
-                .is_ok()
-        );
+        let verifying_key = VerifyingKey::from(pair.0.public_key());
+        let sig = EcdsaSignature::from_der(&signature).expect("valid signature");
+        verifying_key
+            .verify(&msg, &sig)
+            .expect("verification should succeed");
     }
 }
