@@ -36,7 +36,22 @@
               inherit system;
               overlays = [
                 inputs.fenix.overlays.default
-                (self: _: { crane = (inputs.crane.mkLib self).overrideToolchain self.fenix.stable.toolchain; })
+                (
+                  self: _:
+                  let
+                    toolchain = (
+                      with self.fenix;
+                      combine [
+                        stable.toolchain
+                        targets.wasm32-unknown-unknown.stable.rust-std
+                      ]
+                    );
+
+                  in
+                  {
+                    crane = (inputs.crane.mkLib self).overrideToolchain toolchain;
+                  }
+                )
               ];
             };
 
