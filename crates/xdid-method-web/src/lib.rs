@@ -1,7 +1,7 @@
 //! [xdid](https://github.com/unavi-xyz/xdid) implementation of [did:web](https://w3c-ccg.github.io/did-method-web/).
 
 use reqwest::{Client, ClientBuilder};
-use xdid_core::{Method, ResolutionError, did::Did, document::Document};
+use xdid_core::{Method, MethodFuture, ResolutionError, did::Did, document::Document};
 
 pub use reqwest;
 
@@ -30,29 +30,7 @@ impl Method for MethodDidWeb {
         NAME
     }
 
-    #[cfg(not(target_family = "wasm"))]
-    fn resolve(
-        &self,
-        did: Did,
-    ) -> std::pin::Pin<
-        Box<
-            dyn std::future::Future<Output = Result<xdid_core::document::Document, ResolutionError>>
-                + Send
-                + Sync,
-        >,
-    > {
-        Box::pin(resolve_inner(self.client.clone(), did))
-    }
-
-    #[cfg(target_family = "wasm")]
-    fn resolve(
-        &self,
-        did: Did,
-    ) -> std::pin::Pin<
-        Box<
-            dyn std::future::Future<Output = Result<xdid_core::document::Document, ResolutionError>>,
-        >,
-    > {
+    fn resolve(&self, did: Did) -> MethodFuture<Result<Document, ResolutionError>> {
         Box::pin(resolve_inner(self.client.clone(), did))
     }
 }

@@ -2,7 +2,7 @@
 
 use parser::DidKeyParser;
 use xdid_core::{
-    Method, ResolutionError,
+    Method, MethodFuture, ResolutionError,
     did::Did,
     did_url::DidUrl,
     document::{Document, VerificationMethod, VerificationMethodMap},
@@ -22,29 +22,7 @@ impl Method for MethodDidKey {
         NAME
     }
 
-    #[cfg(not(target_family = "wasm"))]
-    fn resolve(
-        &self,
-        did: Did,
-    ) -> std::pin::Pin<
-        Box<
-            dyn std::future::Future<Output = Result<xdid_core::document::Document, ResolutionError>>
-                + Send
-                + Sync,
-        >,
-    > {
-        Box::pin(async move { resolve_inner(did) })
-    }
-
-    #[cfg(target_family = "wasm")]
-    fn resolve(
-        &self,
-        did: Did,
-    ) -> std::pin::Pin<
-        Box<
-            dyn std::future::Future<Output = Result<xdid_core::document::Document, ResolutionError>>,
-        >,
-    > {
+    fn resolve(&self, did: Did) -> MethodFuture<Result<Document, ResolutionError>> {
         Box::pin(async move { resolve_inner(did) })
     }
 }
