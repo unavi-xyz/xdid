@@ -1,10 +1,13 @@
-use std::{fmt::Display, str::FromStr};
+use std::{
+    fmt::{Debug, Display},
+    str::FromStr,
+};
 
 use anyhow::bail;
 use serde::{Deserialize, Serialize};
 use smol_str::SmolStr;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 /// A [Decentralized Identifier](https://www.w3.org/TR/did-core/#did-syntax).
 pub struct Did {
     pub method_name: MethodName,
@@ -12,6 +15,12 @@ pub struct Did {
 }
 
 impl Display for Did {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "did:{}:{}", self.method_name.0, self.method_id.0)
+    }
+}
+
+impl Debug for Did {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "did:{}:{}", self.method_name.0, self.method_id.0)
     }
