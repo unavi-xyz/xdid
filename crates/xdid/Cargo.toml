@@ -22,7 +22,7 @@ xdid-method-key     = { optional = true, path = "../xdid-method-key", version = 
 xdid-method-web     = { optional = true, path = "../xdid-method-web", version = "0.6.0" }
 
 [dev-dependencies]
-hyper                = { features = ["http1", "server"], version = "1.8.1" }
+hyper                = { features = ["http1", "server"], version = "1.9.0" }
 hyper-util           = "0.1.19"
 port_check.workspace = true
 serde_json.workspace = true
