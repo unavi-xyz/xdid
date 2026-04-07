@@ -4,5 +4,6 @@ result
 # Rust
 target
 
-# Other
+# Env
 .direnv
+.envrc
