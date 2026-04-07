@@ -13,8 +13,8 @@ workspace = true
 anyhow.workspace    = true
 jose-jwk.workspace  = true
 serde               = { features = ["derive"], workspace = true }
-serde_with          = "3.16.1"
-smol_str            = { features = ["serde"], version = "0.3.5" }
+serde_with          = "3.18.0"
+smol_str            = { features = ["serde"], version = "0.3.6" }
 thiserror.workspace = true
 
 [dev-dependencies]
