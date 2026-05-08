@@ -7,8 +7,8 @@ use anyhow::bail;
 use serde::{Deserialize, Serialize};
 use smol_str::SmolStr;
 
-#[derive(Clone, PartialEq, Eq)]
-/// A [Decentralized Identifier](https://www.w3.org/TR/did-core/#did-syntax).
+/// A [decentralized identifier](https://www.w3.org/TR/did-core/#did-syntax).
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub struct Did {
     pub method_name: MethodName,
     pub method_id: MethodId,
@@ -22,7 +22,7 @@ impl Display for Did {
 
 impl Debug for Did {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "did:{}:{}", self.method_name.0, self.method_id.0)
+        write!(f, "{self}")
     }
 }
 
@@ -71,7 +71,7 @@ impl<'de> Deserialize<'de> for Did {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct MethodName(pub SmolStr);
 
 impl FromStr for MethodName {
@@ -88,7 +88,7 @@ impl FromStr for MethodName {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct MethodId(pub String);
 
 impl FromStr for MethodId {
