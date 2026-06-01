@@ -1,6 +1,9 @@
 //! Core types for DID methods to implement.
 
-use std::{future::Future, pin::Pin};
+use std::{
+    future::Future,
+    pin::Pin,
+};
 
 use did::Did;
 use thiserror::Error;

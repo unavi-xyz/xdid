@@ -1,17 +1,23 @@
 use std::{
-    fmt::{Debug, Display},
+    fmt::{
+        Debug,
+        Display,
+    },
     str::FromStr,
 };
 
 use anyhow::bail;
-use serde::{Deserialize, Serialize};
+use serde::{
+    Deserialize,
+    Serialize,
+};
 use smol_str::SmolStr;
 
 /// A [decentralized identifier](https://www.w3.org/TR/did-core/#did-syntax).
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct Did {
     pub method_name: MethodName,
-    pub method_id: MethodId,
+    pub method_id:   MethodId,
 }
 
 impl Display for Did {
@@ -122,7 +128,7 @@ mod tests {
     fn test_did_example() {
         let did = Did {
             method_name: MethodName("example".into()),
-            method_id: MethodId("1234-5678-abcdef".to_string()),
+            method_id:   MethodId("1234-5678-abcdef".to_string()),
         };
 
         let serialized = did.to_string();

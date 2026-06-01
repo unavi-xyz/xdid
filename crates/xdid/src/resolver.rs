@@ -1,6 +1,11 @@
 use smallvec::SmallVec;
 use thiserror::Error;
-use xdid_core::{Method, ResolutionError, did::Did, document::Document};
+use xdid_core::{
+    Method,
+    ResolutionError,
+    did::Did,
+    document::Document,
+};
 
 /// Resolves DIDs using a set of provided methods.
 pub struct DidResolver {
@@ -53,7 +58,11 @@ impl DidResolver {
 
 #[cfg(all(test, feature = "did-key"))]
 mod did_key_tests {
-    use xdid_method_key::{DidKeyPair, PublicKey, p256::P256KeyPair};
+    use xdid_method_key::{
+        DidKeyPair,
+        PublicKey,
+        p256::P256KeyPair,
+    };
 
     use super::*;
 
@@ -71,9 +80,17 @@ mod did_key_tests {
 
 #[cfg(all(test, feature = "did-web"))]
 mod did_web_tests {
-    use std::{net::SocketAddr, str::FromStr, sync::Arc};
+    use std::{
+        net::SocketAddr,
+        str::FromStr,
+        sync::Arc,
+    };
 
-    use hyper::{Response, server::conn::http1::Builder, service::service_fn};
+    use hyper::{
+        Response,
+        server::conn::http1::Builder,
+        service::service_fn,
+    };
     use hyper_util::rt::TokioIo;
     use tokio::net::TcpListener;
 
@@ -98,16 +115,16 @@ mod did_web_tests {
         let did = Did::from_str(&format!("did:web:localhost%3A{port}")).expect("valid DID");
 
         let doc = Document {
-            id: did.clone(),
-            also_known_as: None,
-            assertion_method: None,
-            authentication: None,
+            id:                    did.clone(),
+            also_known_as:         None,
+            assertion_method:      None,
+            authentication:        None,
             capability_delegation: None,
             capability_invocation: None,
-            controller: None,
-            key_agreement: None,
-            service: None,
-            verification_method: None,
+            controller:            None,
+            key_agreement:         None,
+            service:               None,
+            verification_method:   None,
         };
 
         let data = Arc::new(serde_json::to_string(&doc).expect("serialization should succeed"));

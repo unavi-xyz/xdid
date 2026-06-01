@@ -1,8 +1,20 @@
 use serde_json::Value;
 use xdid_core::{
-    did::{Did, MethodId, MethodName},
-    did_url::{DidUrl, RelativeDidUrl, RelativeDidUrlPath},
-    document::{Document, VerificationMethod, VerificationMethodMap},
+    did::{
+        Did,
+        MethodId,
+        MethodName,
+    },
+    did_url::{
+        DidUrl,
+        RelativeDidUrl,
+        RelativeDidUrlPath,
+    },
+    document::{
+        Document,
+        VerificationMethod,
+        VerificationMethodMap,
+    },
 };
 
 #[test]
@@ -11,39 +23,39 @@ fn test_document_serde() {
 
     let did = Did {
         method_name: MethodName("web".into()),
-        method_id: MethodId("localhost%3A4000".to_string()),
+        method_id:   MethodId("localhost%3A4000".to_string()),
     };
 
     let doc = Document {
-        id: did.clone(),
-        also_known_as: None,
-        assertion_method: Some(vec![VerificationMethod::RelativeUrl(RelativeDidUrl {
+        id:                    did.clone(),
+        also_known_as:         None,
+        assertion_method:      Some(vec![VerificationMethod::RelativeUrl(RelativeDidUrl {
             fragment: Some("owner".into()),
-            path: RelativeDidUrlPath::Empty,
-            query: None,
+            path:     RelativeDidUrlPath::Empty,
+            query:    None,
         })]),
-        authentication: None,
+        authentication:        None,
         capability_delegation: Some(vec![VerificationMethod::Url(DidUrl {
-            did: did.clone(),
-            fragment: Some("owner".into()),
+            did:          did.clone(),
+            fragment:     Some("owner".into()),
             path_abempty: None,
-            query: Some("test-query".into()),
+            query:        Some("test-query".into()),
         })]),
         capability_invocation: None,
-        controller: None,
-        key_agreement: None,
-        service: None,
-        verification_method: Some(vec![VerificationMethodMap {
-            id: DidUrl {
-                did: did.clone(),
-                fragment: Some("owner".into()),
+        controller:            None,
+        key_agreement:         None,
+        service:               None,
+        verification_method:   Some(vec![VerificationMethodMap {
+            id:                   DidUrl {
+                did:          did.clone(),
+                fragment:     Some("owner".into()),
                 path_abempty: None,
-                query: None,
+                query:        None,
             },
-            controller: did,
-            typ: "JsonWebKey2020".into(),
+            controller:           did,
+            typ:                  "JsonWebKey2020".into(),
             public_key_multibase: None,
-            public_key_jwk: None,
+            public_key_jwk:       None,
         }]),
     };
 

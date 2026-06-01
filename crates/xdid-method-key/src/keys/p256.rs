@@ -1,16 +1,34 @@
 use jose_jwk::Jwk;
 use p256::{
     SecretKey,
-    ecdsa::{Signature, SigningKey, signature::SignerMut},
+    ecdsa::{
+        Signature,
+        SigningKey,
+        signature::SignerMut,
+    },
     elliptic_curve::{
         rand_core::OsRng,
-        sec1::{FromEncodedPoint, ToEncodedPoint},
+        sec1::{
+            FromEncodedPoint,
+            ToEncodedPoint,
+        },
         zeroize::Zeroizing,
     },
-    pkcs8::{DecodePrivateKey, EncodePrivateKey, LineEnding},
+    pkcs8::{
+        DecodePrivateKey,
+        EncodePrivateKey,
+        LineEnding,
+    },
 };
 
-use super::{DidKeyPair, KeyParser, Multicodec, PublicKey, Signer, WithMulticodec};
+use super::{
+    DidKeyPair,
+    KeyParser,
+    Multicodec,
+    PublicKey,
+    Signer,
+    WithMulticodec,
+};
 
 #[derive(Clone, PartialEq, Eq)]
 pub struct P256KeyPair(SecretKey);
@@ -96,11 +114,14 @@ impl Multicodec for P256Codec {
 
 #[cfg(test)]
 mod tests {
-    use p256::ecdsa::{Signature as EcdsaSignature, VerifyingKey, signature::Verifier};
-
-    use crate::parser::DidKeyParser;
+    use p256::ecdsa::{
+        Signature as EcdsaSignature,
+        VerifyingKey,
+        signature::Verifier,
+    };
 
     use super::*;
+    use crate::parser::DidKeyParser;
 
     #[test]
     fn test_display() {

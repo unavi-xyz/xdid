@@ -2,10 +2,16 @@
 
 use parser::DidKeyParser;
 use xdid_core::{
-    Method, MethodFuture, ResolutionError,
+    Method,
+    MethodFuture,
+    ResolutionError,
     did::Did,
     did_url::DidUrl,
-    document::{Document, VerificationMethod, VerificationMethodMap},
+    document::{
+        Document,
+        VerificationMethod,
+        VerificationMethodMap,
+    },
 };
 
 mod keys;
@@ -36,28 +42,28 @@ fn resolve_inner(did: Did) -> Result<Document, ResolutionError> {
         .map_err(|_| ResolutionError::InvalidDid)?;
 
     let did_url = DidUrl {
-        did: did.clone(),
-        fragment: Some(did.method_id.0.clone().into()),
+        did:          did.clone(),
+        fragment:     Some(did.method_id.0.clone().into()),
         path_abempty: None,
-        query: None,
+        query:        None,
     };
 
     Ok(Document {
-        id: did.clone(),
-        also_known_as: None,
-        controller: None,
-        verification_method: Some(vec![VerificationMethodMap {
-            id: did_url.clone(),
-            typ: "JsonWebKey2020".into(),
-            controller: did,
-            public_key_jwk: Some(did_key.to_jwk()),
+        id:                    did.clone(),
+        also_known_as:         None,
+        controller:            None,
+        verification_method:   Some(vec![VerificationMethodMap {
+            id:                   did_url.clone(),
+            typ:                  "JsonWebKey2020".into(),
+            controller:           did,
+            public_key_jwk:       Some(did_key.to_jwk()),
             public_key_multibase: None,
         }]),
-        authentication: Some(vec![VerificationMethod::Url(did_url.clone())]),
-        assertion_method: Some(vec![VerificationMethod::Url(did_url.clone())]),
+        authentication:        Some(vec![VerificationMethod::Url(did_url.clone())]),
+        assertion_method:      Some(vec![VerificationMethod::Url(did_url.clone())]),
         capability_invocation: Some(vec![VerificationMethod::Url(did_url.clone())]),
         capability_delegation: Some(vec![VerificationMethod::Url(did_url)]),
-        service: None,
-        key_agreement: None,
+        service:               None,
+        key_agreement:         None,
     })
 }

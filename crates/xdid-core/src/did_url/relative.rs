@@ -1,16 +1,25 @@
-use std::{fmt::Display, str::FromStr};
+use std::{
+    fmt::Display,
+    str::FromStr,
+};
 
 use anyhow::bail;
-use serde::{Deserialize, Serialize};
+use serde::{
+    Deserialize,
+    Serialize,
+};
 use smol_str::SmolStr;
 
-use crate::uri::{Segment, is_segment};
+use crate::uri::{
+    Segment,
+    is_segment,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RelativeDidUrl {
-    pub path: RelativeDidUrlPath,
+    pub path:     RelativeDidUrlPath,
     /// [DID query](https://www.w3.org/TR/did-core/#query) ([RFC 3986 - 3.4. Query](https://www.rfc-editor.org/rfc/rfc3986#section-3.4))
-    pub query: Option<SmolStr>,
+    pub query:    Option<SmolStr>,
     /// [DID fragment](https://www.w3.org/TR/did-core/#fragment) ([RFC 3986 - 3.5. Fragment](https://www.rfc-editor.org/rfc/rfc3986#section-3.5))
     pub fragment: Option<SmolStr>,
 }
@@ -46,8 +55,8 @@ impl FromStr for RelativeDidUrl {
         };
 
         Ok(Self {
-            path: RelativeDidUrlPath::from_str(path)?,
-            query: query.map(Into::into),
+            path:     RelativeDidUrlPath::from_str(path)?,
+            query:    query.map(Into::into),
             fragment: fragment.map(Into::into),
         })
     }

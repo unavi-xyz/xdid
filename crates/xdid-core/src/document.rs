@@ -1,11 +1,20 @@
 use jose_jwk::Jwk;
-use serde::{Deserialize, Serialize};
-use serde_with::{serde_as, skip_serializing_none};
+use serde::{
+    Deserialize,
+    Serialize,
+};
+use serde_with::{
+    serde_as,
+    skip_serializing_none,
+};
 use smol_str::SmolStr;
 
 use crate::{
     did::Did,
-    did_url::{DidUrl, RelativeDidUrl},
+    did_url::{
+        DidUrl,
+        RelativeDidUrl,
+    },
 };
 
 #[skip_serializing_none]
@@ -13,17 +22,17 @@ use crate::{
 #[serde(rename_all = "camelCase")]
 #[serde_as]
 pub struct Document {
-    pub id: Did,
-    pub also_known_as: Option<Vec<String>>,
+    pub id:                    Did,
+    pub also_known_as:         Option<Vec<String>>,
     #[serde_as(as = "Option<OneOrMany<_>>")]
-    pub controller: Option<Vec<Did>>,
-    pub verification_method: Option<Vec<VerificationMethodMap>>,
-    pub authentication: Option<Vec<VerificationMethod>>,
-    pub assertion_method: Option<Vec<VerificationMethod>>,
-    pub key_agreement: Option<Vec<VerificationMethod>>,
+    pub controller:            Option<Vec<Did>>,
+    pub verification_method:   Option<Vec<VerificationMethodMap>>,
+    pub authentication:        Option<Vec<VerificationMethod>>,
+    pub assertion_method:      Option<Vec<VerificationMethod>>,
+    pub key_agreement:         Option<Vec<VerificationMethod>>,
     pub capability_invocation: Option<Vec<VerificationMethod>>,
     pub capability_delegation: Option<Vec<VerificationMethod>>,
-    pub service: Option<Vec<ServiceEndpoint>>,
+    pub service:               Option<Vec<ServiceEndpoint>>,
 }
 
 impl Document {
@@ -112,20 +121,23 @@ pub enum VerificationMethod {
 #[skip_serializing_none]
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct VerificationMethodMap {
-    pub id: DidUrl,
-    pub controller: Did,
+    pub id:                   DidUrl,
+    pub controller:           Did,
     #[serde(rename = "type")]
-    pub typ: SmolStr,
-    pub public_key_jwk: Option<Jwk>,
+    pub typ:                  SmolStr,
+    pub public_key_jwk:       Option<Jwk>,
     /// Multibase encoded public key.
     pub public_key_multibase: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
 #[serde_as]
 pub struct ServiceEndpoint {
-    pub id: String,
+    pub id:               String,
     #[serde(rename = "type")]
     #[serde_as(as = "OneOrMany<_>")]
-    pub typ: Vec<String>,
+    pub typ:              Vec<String>,
+    #[serde_as(as = "OneOrMany<_>")]
+    pub service_endpoint: Vec<String>,
 }

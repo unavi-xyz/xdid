@@ -1,16 +1,36 @@
 use jose_jwk::Jwk;
 use p256::{
-    elliptic_curve::{rand_core::OsRng, zeroize::Zeroizing},
-    pkcs8::{DecodePrivateKey, LineEnding},
+    elliptic_curve::{
+        rand_core::OsRng,
+        zeroize::Zeroizing,
+    },
+    pkcs8::{
+        DecodePrivateKey,
+        LineEnding,
+    },
 };
 use p384::{
     SecretKey,
-    ecdsa::{Signature, SigningKey, signature::SignerMut},
-    elliptic_curve::sec1::{FromEncodedPoint, ToEncodedPoint},
+    ecdsa::{
+        Signature,
+        SigningKey,
+        signature::SignerMut,
+    },
+    elliptic_curve::sec1::{
+        FromEncodedPoint,
+        ToEncodedPoint,
+    },
     pkcs8::EncodePrivateKey,
 };
 
-use super::{DidKeyPair, KeyParser, Multicodec, PublicKey, Signer, WithMulticodec};
+use super::{
+    DidKeyPair,
+    KeyParser,
+    Multicodec,
+    PublicKey,
+    Signer,
+    WithMulticodec,
+};
 
 #[derive(Clone, PartialEq, Eq)]
 pub struct P384KeyPair(SecretKey);
@@ -96,11 +116,14 @@ impl Multicodec for P384Codec {
 
 #[cfg(test)]
 mod tests {
-    use p384::ecdsa::{Signature as EcdsaSignature, VerifyingKey, signature::Verifier};
-
-    use crate::parser::DidKeyParser;
+    use p384::ecdsa::{
+        Signature as EcdsaSignature,
+        VerifyingKey,
+        signature::Verifier,
+    };
 
     use super::*;
+    use crate::parser::DidKeyParser;
 
     #[test]
     fn test_display() {

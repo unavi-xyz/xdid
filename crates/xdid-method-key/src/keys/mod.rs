@@ -1,14 +1,16 @@
 use jose_jwk::Jwk;
 use multibase::Base;
-use xdid_core::did::{Did, MethodId, MethodName};
+use xdid_core::did::{
+    Did,
+    MethodId,
+    MethodName,
+};
 use zeroize::Zeroizing;
 
 use crate::NAME;
 
-#[cfg(feature = "p256")]
-pub mod p256;
-#[cfg(feature = "p384")]
-pub mod p384;
+#[cfg(feature = "p256")] pub mod p256;
+#[cfg(feature = "p384")] pub mod p384;
 
 pub trait Signer {
     /// Sign a message with the private key.
@@ -57,7 +59,7 @@ pub trait PublicKey: WithMulticodec {
 
         Did {
             method_name: MethodName(NAME.into()),
-            method_id: MethodId(id),
+            method_id:   MethodId(id),
         }
     }
 }

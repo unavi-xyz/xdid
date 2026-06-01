@@ -1,28 +1,39 @@
-use std::{fmt::Display, str::FromStr};
-
-use anyhow::bail;
-use serde::{Deserialize, Serialize};
-use smol_str::SmolStr;
-
-use crate::{
-    did::Did,
-    uri::{Segment, is_segment},
+use std::{
+    fmt::Display,
+    str::FromStr,
 };
 
-use super::{RelativeDidUrl, RelativeDidUrlPath};
+use anyhow::bail;
+use serde::{
+    Deserialize,
+    Serialize,
+};
+use smol_str::SmolStr;
+
+use super::{
+    RelativeDidUrl,
+    RelativeDidUrlPath,
+};
+use crate::{
+    did::Did,
+    uri::{
+        Segment,
+        is_segment,
+    },
+};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DidUrl {
-    pub did: Did,
+    pub did:          Did,
     /// [DID path](https://www.w3.org/TR/did-core/#path). `path-abempty` component from
     /// [RFC 3986](https://www.rfc-editor.org/rfc/rfc3986#section-3.3).
     pub path_abempty: Option<String>,
     /// [DID query](https://www.w3.org/TR/did-core/#query). `query` component from
     /// [RFC 3986](https://www.rfc-editor.org/rfc/rfc3986#section-3.3).
-    pub query: Option<SmolStr>,
+    pub query:        Option<SmolStr>,
     /// [DID fragment](https://www.w3.org/TR/did-core/#fragment). `fragment` component from
     /// [RFC 3986](https://www.rfc-editor.org/rfc/rfc3986#section-3.3).
-    pub fragment: Option<SmolStr>,
+    pub fragment:     Option<SmolStr>,
 }
 
 impl Serialize for DidUrl {
@@ -50,14 +61,14 @@ impl DidUrl {
     #[must_use]
     pub fn to_relative(&self) -> Option<RelativeDidUrl> {
         Some(RelativeDidUrl {
-            path: match RelativeDidUrlPath::from_str(
+            path:     match RelativeDidUrlPath::from_str(
                 self.path_abempty.as_deref().unwrap_or_default(),
             ) {
                 Ok(v) => v,
                 Err(_) => return None,
             },
             fragment: self.fragment.clone(),
-            query: self.query.clone(),
+            query:    self.query.clone(),
         })
     }
 }
@@ -142,10 +153,10 @@ mod tests {
     #[test]
     fn test_full() {
         let did_url = DidUrl {
-            did: Did::from_str("did:example:123").expect("valid DID"),
+            did:          Did::from_str("did:example:123").expect("valid DID"),
             path_abempty: Some("/path/to/resource".to_string()),
-            query: Some("key=value".into()),
-            fragment: Some("section".into()),
+            query:        Some("key=value".into()),
+            fragment:     Some("section".into()),
         };
 
         let serialized = did_url.to_string();
@@ -161,10 +172,10 @@ mod tests {
     #[test]
     fn test_no_path() {
         let did_url = DidUrl {
-            did: Did::from_str("did:example:123").expect("valid DID"),
+            did:          Did::from_str("did:example:123").expect("valid DID"),
             path_abempty: None,
-            query: Some("key=value".into()),
-            fragment: Some("section".into()),
+            query:        Some("key=value".into()),
+            fragment:     Some("section".into()),
         };
 
         let serialized = did_url.to_string();
@@ -177,10 +188,10 @@ mod tests {
     #[test]
     fn test_no_query() {
         let did_url = DidUrl {
-            did: Did::from_str("did:example:123").expect("valid DID"),
+            did:          Did::from_str("did:example:123").expect("valid DID"),
             path_abempty: Some("/path/to/resource".to_string()),
-            query: None,
-            fragment: Some("section".into()),
+            query:        None,
+            fragment:     Some("section".into()),
         };
 
         let serialized = did_url.to_string();
@@ -193,10 +204,10 @@ mod tests {
     #[test]
     fn test_no_fragment() {
         let did_url = DidUrl {
-            did: Did::from_str("did:example:123").expect("valid DID"),
+            did:          Did::from_str("did:example:123").expect("valid DID"),
             path_abempty: Some("/path/to/resource".to_string()),
-            query: Some("key=value".into()),
-            fragment: None,
+            query:        Some("key=value".into()),
+            fragment:     None,
         };
 
         let serialized = did_url.to_string();
@@ -209,10 +220,10 @@ mod tests {
     #[test]
     fn test_did_plain() {
         let did_url = DidUrl {
-            did: Did::from_str("did:example:123").expect("valid DID"),
+            did:          Did::from_str("did:example:123").expect("valid DID"),
             path_abempty: None,
-            query: None,
-            fragment: None,
+            query:        None,
+            fragment:     None,
         };
 
         let serialized = did_url.to_string();
@@ -225,10 +236,10 @@ mod tests {
     #[test]
     fn test_compound_query() {
         let did_url = DidUrl {
-            did: Did::from_str("did:example:123").expect("valid DID"),
+            did:          Did::from_str("did:example:123").expect("valid DID"),
             path_abempty: None,
-            query: Some("a=1&b=2".into()),
-            fragment: None,
+            query:        Some("a=1&b=2".into()),
+            fragment:     None,
         };
 
         let serialized = did_url.to_string();
@@ -241,10 +252,10 @@ mod tests {
     #[test]
     fn test_service_ref() {
         let did_url = DidUrl {
-            did: Did::from_str("did:example:123").expect("valid DID"),
+            did:          Did::from_str("did:example:123").expect("valid DID"),
             path_abempty: None,
-            query: Some("service=my-service&relativeRef=/records/abc123".into()),
-            fragment: None,
+            query:        Some("service=my-service&relativeRef=/records/abc123".into()),
+            fragment:     None,
         };
 
         let serialized = did_url.to_string();

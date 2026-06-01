@@ -3,7 +3,10 @@ use smallvec::SmallVec;
 use thiserror::Error;
 use xdid_core::did::Did;
 
-use crate::keys::{KeyParser, PublicKey};
+use crate::keys::{
+    KeyParser,
+    PublicKey,
+};
 
 pub struct DidKeyParser {
     parsers: SmallVec<[Box<dyn KeyParser>; 2]>,
