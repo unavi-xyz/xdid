@@ -7,7 +7,14 @@ Simple [DID](https://www.w3.org/TR/did-core/) library.
 ### Example
 
 ```rust
-use xdid::{resolver::DidResolver, methods::key::{p256::P256KeyPair, DidKeyPair, PublicKey}};
+use xdid::{
+    methods::key::{
+        DidKeyPair,
+        PublicKey,
+        p256::P256KeyPair,
+    },
+    resolver::DidResolver,
+};
 
 #[tokio::main]
 async fn main() {
