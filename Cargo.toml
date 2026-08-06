@@ -13,13 +13,16 @@ nursery     = { level = "warn", priority = -1 }
 pedantic    = { level = "warn", priority = -1 }
 unwrap_used = "deny"
 
+[profile.test]
+incremental = false
+
 [workspace.metadata.release]
 shared-version = true
 tag-name       = "v{{version}}"
 
 [workspace.dependencies]
 anyhow     = "1.0.102"
-jose-jwk   = "0.1.2"
+jose-jwk   = { default-features = false, version = "0.1.2" }
 port_check = "0.3.0"
 serde      = "1.0.228"
 serde_json = "1.0.149"

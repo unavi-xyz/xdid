@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use jose_jwk::Jwk;
 use multibase::Base;
 use xdid_core::did::{
@@ -36,6 +38,9 @@ pub trait DidKeyPair: Signer + Sized {
 
     /// Import a key pair from a PKCS#8 PEM string.
     ///
+    /// The borrowed `pem` cannot be cleared from here; the caller owns it and
+    /// is responsible for zeroizing it once the key has been imported.
+    ///
     /// # Errors
     ///
     /// Returns an error if the PEM is invalid or cannot be decoded.
@@ -43,7 +48,8 @@ pub trait DidKeyPair: Signer + Sized {
 }
 
 pub trait PublicKey: WithMulticodec {
-    fn to_sec1_bytes(&self) -> Box<[u8]>;
+    /// The compressed SEC1 point, which is the encoding `did:key` is built
+    /// from.
     fn to_encoded_point_bytes(&self) -> Box<[u8]>;
     fn to_jwk(&self) -> Jwk;
 
@@ -52,24 +58,20 @@ pub trait PublicKey: WithMulticodec {
         let code = self.codec().code();
 
         let mut inner = Vec::with_capacity(code.len() + bytes.len());
-        inner.extend(code);
-        inner.extend(bytes);
-
-        let id = multibase::encode(Base::Base58Btc, inner);
+        inner.extend_from_slice(code);
+        inner.extend_from_slice(&bytes);
 
         Did {
-            method_name: MethodName(NAME.into()),
-            method_id:   MethodId(id),
+            method_name: MethodName::from_str(NAME).expect("method name is a valid constant"),
+            method_id:   MethodId::from_str(&multibase::encode(Base::Base58Btc, inner))
+                .expect("base58btc alphabet is a subset of idchar"),
         }
     }
 }
 
 pub trait Multicodec {
-    fn code_u64(&self) -> u64;
-    fn code(&self) -> Vec<u8> {
-        let mut buffer = unsigned_varint::encode::u64_buffer();
-        unsigned_varint::encode::u64(self.code_u64(), &mut buffer).to_vec()
-    }
+    /// The multicodec prefix, as an unsigned varint.
+    fn code(&self) -> &'static [u8];
 }
 
 pub trait WithMulticodec {
@@ -82,5 +84,5 @@ pub trait KeyParser: WithMulticodec {
     /// # Errors
     ///
     /// Returns an error if the bytes do not represent a valid public key.
-    fn parse(&self, public_key: Vec<u8>) -> Result<Box<dyn PublicKey>, crate::parser::ParseError>;
+    fn parse(&self, public_key: &[u8]) -> Result<Box<dyn PublicKey>, crate::parser::ParseError>;
 }

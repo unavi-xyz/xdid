@@ -10,7 +10,7 @@ use serde::{
 };
 use smol_str::SmolStr;
 
-use super::{
+use super::relative::{
     RelativeDidUrl,
     RelativeDidUrlPath,
 };
@@ -18,22 +18,26 @@ use crate::{
     did::Did,
     uri::{
         Segment,
+        is_query_or_fragment,
         is_segment,
     },
 };
 
+/// Fields are private so that every value has been through the RFC 3986
+/// grammar; callers may otherwise smuggle control characters into a type whose
+/// whole purpose is to assert well-formedness.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DidUrl {
-    pub did:          Did,
+    did:          Did,
     /// [DID path](https://www.w3.org/TR/did-core/#path). `path-abempty` component from
     /// [RFC 3986](https://www.rfc-editor.org/rfc/rfc3986#section-3.3).
-    pub path_abempty: Option<String>,
+    path_abempty: Option<String>,
     /// [DID query](https://www.w3.org/TR/did-core/#query). `query` component from
     /// [RFC 3986](https://www.rfc-editor.org/rfc/rfc3986#section-3.3).
-    pub query:        Option<SmolStr>,
+    query:        Option<SmolStr>,
     /// [DID fragment](https://www.w3.org/TR/did-core/#fragment). `fragment` component from
     /// [RFC 3986](https://www.rfc-editor.org/rfc/rfc3986#section-3.3).
-    pub fragment:     Option<SmolStr>,
+    fragment:     Option<SmolStr>,
 }
 
 impl Serialize for DidUrl {
@@ -57,20 +61,98 @@ impl<'de> Deserialize<'de> for DidUrl {
 }
 
 impl DidUrl {
+    /// Builds a [`DidUrl`] from its components.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if any component does not conform to
+    /// [RFC 3986](https://www.rfc-editor.org/rfc/rfc3986).
+    pub fn new(
+        did: Did,
+        path_abempty: Option<String>,
+        query: Option<SmolStr>,
+        fragment: Option<SmolStr>,
+    ) -> anyhow::Result<Self> {
+        if let Some(path) = path_abempty.as_deref() {
+            validate_path_abempty(path)?;
+        }
+
+        if [query.as_deref(), fragment.as_deref()]
+            .into_iter()
+            .flatten()
+            .any(|v| !is_query_or_fragment(v))
+        {
+            bail!("invalid query or fragment")
+        }
+
+        Ok(Self {
+            did,
+            path_abempty,
+            query,
+            fragment,
+        })
+    }
+
+    #[must_use]
+    pub const fn did(&self) -> &Did {
+        &self.did
+    }
+
+    #[must_use]
+    pub fn path_abempty(&self) -> Option<&str> {
+        self.path_abempty.as_deref()
+    }
+
+    #[must_use]
+    pub fn query(&self) -> Option<&str> {
+        self.query.as_deref()
+    }
+
+    #[must_use]
+    pub fn fragment(&self) -> Option<&str> {
+        self.fragment.as_deref()
+    }
+
     /// Attempts to convert the [`DidUrl`] into a [`RelativeDidUrl`].
     #[must_use]
     pub fn to_relative(&self) -> Option<RelativeDidUrl> {
-        Some(RelativeDidUrl {
-            path:     match RelativeDidUrlPath::from_str(
-                self.path_abempty.as_deref().unwrap_or_default(),
-            ) {
-                Ok(v) => v,
-                Err(_) => return None,
-            },
-            fragment: self.fragment.clone(),
-            query:    self.query.clone(),
-        })
+        let path =
+            RelativeDidUrlPath::from_str(self.path_abempty.as_deref().unwrap_or_default()).ok()?;
+
+        Some(RelativeDidUrl::from_parts(
+            path,
+            self.query.clone(),
+            self.fragment.clone(),
+        ))
     }
+
+    /// Whether this URL, viewed relative to its own DID, is `other`.
+    ///
+    /// Equivalent to comparing against [`Self::to_relative`], without building
+    /// one per comparison.
+    #[must_use]
+    pub fn matches_relative(&self, other: &RelativeDidUrl) -> bool {
+        self.path_abempty.as_deref().unwrap_or_default() == other.path().as_str()
+            && self.query.as_deref() == other.query()
+            && self.fragment.as_deref() == other.fragment()
+    }
+}
+
+fn validate_path_abempty(path: &str) -> anyhow::Result<()> {
+    // path-abempty = *( "/" segment )
+    if !path.starts_with('/') {
+        bail!("path_abempty does not start with slash")
+    }
+
+    if !path
+        .split('/')
+        .skip(1)
+        .all(|v| is_segment(v, Segment::Base))
+    {
+        bail!("invalid path_abempty segment")
+    }
+
+    Ok(())
 }
 
 impl Display for DidUrl {
@@ -110,12 +192,22 @@ impl FromStr for DidUrl {
         let mut rest = s
             .strip_prefix(did_str)
             .expect("DID string prefix already validated");
+
+        // Fragment first: a fragment may itself contain "?".
         if let Some((before_fragment, frag)) = rest.split_once('#') {
+            if !is_query_or_fragment(frag) {
+                bail!("invalid fragment")
+            }
+
             fragment = Some(frag.into());
             rest = before_fragment;
         }
 
         if let Some((before_query, qry)) = rest.split_once('?') {
+            if !is_query_or_fragment(qry) {
+                bail!("invalid query")
+            }
+
             query = Some(qry.into());
             rest = before_query;
         }
@@ -247,6 +339,30 @@ mod tests {
 
         let deserialized = DidUrl::from_str(&serialized).expect("deserialize failed");
         assert_eq!(deserialized, did_url);
+    }
+
+    #[test]
+    fn test_rejects_control_characters() {
+        for s in [
+            "did:example:123?a=b\r\nX-Evil: 1",
+            "did:example:123#frag with space",
+            "did:example:123#trailing\n",
+            "did:example:123?q=\0",
+            "did:example:123/abc%4",
+            "did:example:123/abc%",
+            "did:example:123/p\u{430}th",
+        ] {
+            assert!(DidUrl::from_str(s).is_err(), "{s:?} should be rejected");
+        }
+    }
+
+    #[test]
+    fn test_fragment_may_contain_question_mark() {
+        let url = DidUrl::from_str("did:example:123#frag?x").expect("valid");
+
+        assert_eq!(url.fragment.as_deref(), Some("frag?x"));
+        assert_eq!(url.query, None);
+        assert_eq!(url.to_string(), "did:example:123#frag?x");
     }
 
     #[test]

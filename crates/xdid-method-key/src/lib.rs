@@ -6,7 +6,7 @@ use xdid_core::{
     MethodFuture,
     ResolutionError,
     did::Did,
-    did_url::DidUrl,
+    did_url::url::DidUrl,
     document::{
         Document,
         VerificationMethod,
@@ -14,10 +14,8 @@ use xdid_core::{
     },
 };
 
-mod keys;
+pub mod keys;
 mod parser;
-
-pub use keys::*;
 
 const NAME: &str = "key";
 
@@ -34,21 +32,20 @@ impl Method for MethodDidKey {
 }
 
 fn resolve_inner(did: Did) -> Result<Document, ResolutionError> {
-    debug_assert_eq!(did.method_name.0, NAME);
+    if did.method_name.as_str() != NAME {
+        return Err(ResolutionError::InvalidDid);
+    }
 
     let parser = DidKeyParser::default();
     let did_key = parser
         .parse(&did)
         .map_err(|_| ResolutionError::InvalidDid)?;
 
-    let did_url = DidUrl {
-        did:          did.clone(),
-        fragment:     Some(did.method_id.0.clone().into()),
-        path_abempty: None,
-        query:        None,
-    };
+    let did_url = DidUrl::new(did.clone(), None, None, Some(did.method_id.as_str().into()))
+        .map_err(|_| ResolutionError::InvalidDid)?;
 
     Ok(Document {
+        context:               None,
         id:                    did.clone(),
         also_known_as:         None,
         controller:            None,

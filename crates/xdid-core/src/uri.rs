@@ -2,92 +2,72 @@
 pub enum Segment {
     /// segment
     Base,
-    /// segment-nz
-    Nz,
-    // segment-nz-nc
+    /// segment-nz-nc
     NzNc,
 }
 
 /// Whether the string conforms to a given [Segment], following [RFC 3986](https://www.rfc-editor.org/rfc/rfc3986#section-3.3).
 pub fn is_segment(value: &str, segment: Segment) -> bool {
-    if (segment == Segment::Nz || segment == Segment::NzNc) && value.is_empty() {
+    if segment == Segment::NzNc && value.is_empty() {
         return false;
     }
 
-    let mut processing_pct_encoded = false;
-    let mut pct_encoded_char = 0usize;
+    // pchar = unreserved / pct-encoded / sub-delims / ":" / "@"
+    // segment-nz-nc excludes ":".
+    scan(value, |b| {
+        is_unreserved(b) || is_sub_delim(b) || b == b'@' || (b == b':' && segment != Segment::NzNc)
+    })
+}
 
-    for c in value.chars() {
-        // pct-encoded = "%" HEXDIG HEXDIG
-        if processing_pct_encoded {
-            if pct_encoded_char == 2 {
-                pct_encoded_char = 0;
-                processing_pct_encoded = false;
-            } else {
-                pct_encoded_char += 1;
+/// Whether the string conforms to `query` / `fragment` from [RFC 3986](https://www.rfc-editor.org/rfc/rfc3986#section-3.4),
+/// which share the production `*( pchar / "/" / "?" )`.
+pub fn is_query_or_fragment(value: &str) -> bool {
+    scan(value, |b| {
+        is_unreserved(b) || is_sub_delim(b) || matches!(b, b':' | b'@' | b'/' | b'?')
+    })
+}
 
-                if c.is_ascii_hexdigit() {
-                    continue;
-                }
+/// Whether the string conforms to `*idchar` from the [DID syntax](https://www.w3.org/TR/did-core/#did-syntax).
+pub fn is_idchars(value: &str) -> bool {
+    scan(value, |b| {
+        b.is_ascii_alphanumeric() || matches!(b, b'.' | b'-' | b'_')
+    })
+}
+
+/// Scans bytes rather than chars: every production here is ASCII-only, and a
+/// multi-byte character can never satisfy `allowed`.
+fn scan(value: &str, allowed: impl Fn(u8) -> bool) -> bool {
+    let mut bytes = value.bytes();
+
+    while let Some(b) = bytes.next() {
+        if b == b'%' {
+            // pct-encoded = "%" HEXDIG HEXDIG
+            let (Some(high), Some(low)) = (bytes.next(), bytes.next()) else {
+                return false;
+            };
+
+            if !high.is_ascii_hexdigit() || !low.is_ascii_hexdigit() {
                 return false;
             }
+        } else if !allowed(b) {
+            return false;
         }
-
-        if c == '%' {
-            processing_pct_encoded = true;
-            continue;
-        }
-
-        if is_unreserved(c) {
-            continue;
-        }
-
-        if is_sub_delim(c) {
-            continue;
-        }
-
-        // pchar = unreserved / pct-encoded / sub-delims / ":" / "@"
-        // segment       = *pchar
-        // segment-nz    = 1*pchar
-        // segment-nz-nc = 1*( unreserved / pct-encoded / sub-delims / "@" )
-        //            ; non-zero-length segment without any colon ":"
-        if c == '@' {
-            continue;
-        }
-
-        match segment {
-            Segment::Base | Segment::Nz => {
-                if c == ':' {
-                    continue;
-                }
-            }
-            Segment::NzNc => {}
-        }
-
-        return false;
     }
 
     true
 }
 
 /// unreserved = ALPHA / DIGIT / "-" / "." / "_" / "~"
-fn is_unreserved(c: char) -> bool {
-    c.is_alphanumeric() || c == '-' || c == '.' || c == '_' || c == '~'
+const fn is_unreserved(b: u8) -> bool {
+    b.is_ascii_alphanumeric() || matches!(b, b'-' | b'.' | b'_' | b'~')
 }
 
 /// sub-delims = "!" / "$" / "&" / "'" / "(" / ")" / "*" / "+" / "," / ";" / "="
-const fn is_sub_delim(c: char) -> bool {
-    c == '!'
-        || c == '$'
-        || c == '&'
-        || c == '\''
-        || c == '('
-        || c == ')'
-        || c == '*'
-        || c == '+'
-        || c == ','
-        || c == ';'
-        || c == '='
+const fn is_sub_delim(b: u8) -> bool {
+    matches!(
+        b,
+        b'!' | b'$' | b'&' | b'\'' | b'(' | b')' | b'*' | b'+' | b',' | b';' | b'='
+    )
 }
 
 #[cfg(test)]
@@ -97,7 +77,6 @@ mod tests {
     #[test]
     fn test_segment_length() {
         assert!(is_segment("", Segment::Base));
-        assert!(!is_segment("", Segment::Nz));
         assert!(!is_segment("", Segment::NzNc));
     }
 
@@ -112,14 +91,12 @@ mod tests {
     #[test]
     fn test_segment_symbols() {
         assert!(is_segment("!$&'()*+,;=@", Segment::Base));
-        assert!(is_segment("!$&'()*+,;=@", Segment::Nz));
         assert!(is_segment("!$&'()*+,;=@", Segment::NzNc));
     }
 
     #[test]
     fn test_segment_colon() {
         assert!(is_segment(":", Segment::Base));
-        assert!(is_segment(":", Segment::Nz));
         assert!(!is_segment(":", Segment::NzNc));
     }
 
@@ -128,5 +105,49 @@ mod tests {
         assert!(is_segment("%30%f9a", Segment::Base));
         assert!(!is_segment("%3%f9a", Segment::Base));
         assert!(!is_segment("%%f9a", Segment::Base));
+    }
+
+    #[test]
+    fn test_truncated_pct_encode() {
+        assert!(!is_segment("%", Segment::Base));
+        assert!(!is_segment("%4", Segment::Base));
+        assert!(!is_segment("abc%", Segment::Base));
+        assert!(!is_segment("abc%4", Segment::Base));
+        assert!(!is_segment("%4g", Segment::Base));
+        assert!(!is_query_or_fragment("abc%4"));
+        assert!(!is_idchars("abc%"));
+    }
+
+    #[test]
+    fn test_rejects_non_ascii() {
+        // ALPHA and DIGIT are ASCII-only; homographs must not pass as unreserved.
+        assert!(!is_segment("p\u{430}th", Segment::Base));
+        assert!(!is_segment("日本", Segment::Base));
+        assert!(!is_segment("\u{2177}", Segment::Base));
+        assert!(!is_query_or_fragment("k\u{435}y=1"));
+        assert!(!is_idchars("\u{430}bc"));
+    }
+
+    #[test]
+    fn test_query_or_fragment() {
+        assert!(is_query_or_fragment(""));
+        assert!(is_query_or_fragment("a=1&b=2"));
+        assert!(is_query_or_fragment("service=x&relativeRef=/records/abc"));
+        assert!(is_query_or_fragment("frag?with?question"));
+        assert!(!is_query_or_fragment("a=b\r\nX-Evil: 1"));
+        assert!(!is_query_or_fragment("has space"));
+        assert!(!is_query_or_fragment("trailing\n"));
+        assert!(!is_query_or_fragment("nul\0byte"));
+    }
+
+    #[test]
+    fn test_idchars() {
+        assert!(is_idchars(""));
+        assert!(is_idchars("abc123.-_"));
+        assert!(is_idchars("%3A"));
+        assert!(!is_idchars("%zz"));
+        assert!(!is_idchars("~"));
+        assert!(!is_idchars("a:b"));
+        assert!(!is_idchars("a/b"));
     }
 }

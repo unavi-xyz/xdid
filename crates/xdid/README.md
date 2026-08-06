@@ -8,7 +8,7 @@ Simple [DID](https://www.w3.org/TR/did-core/) library.
 
 ```rust
 use xdid::{
-    methods::key::{
+    methods::key::keys::{
         DidKeyPair,
         PublicKey,
         p256::P256KeyPair,

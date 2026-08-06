@@ -4,7 +4,7 @@ use p256::{
     ecdsa::{
         Signature,
         SigningKey,
-        signature::SignerMut,
+        signature::Signer as _,
     },
     elliptic_curve::{
         rand_core::OsRng,
@@ -29,15 +29,18 @@ use super::{
     Signer,
     WithMulticodec,
 };
+use crate::parser::ParseError;
 
-#[derive(Clone, PartialEq, Eq)]
+/// Multicodec `p256-pub`, as an unsigned varint.
+const CODE: &[u8] = &[0x80, 0x24];
+
+#[derive(Clone)]
 pub struct P256KeyPair(SecretKey);
 
 impl DidKeyPair for P256KeyPair {
     fn generate() -> Self {
         let mut rng = OsRng;
-        let secret = SecretKey::random(&mut rng);
-        Self(secret)
+        Self(SecretKey::random(&mut rng))
     }
 
     fn public(&self) -> impl PublicKey {
@@ -45,19 +48,18 @@ impl DidKeyPair for P256KeyPair {
     }
 
     fn to_pkcs8_pem(&self) -> anyhow::Result<Zeroizing<String>> {
-        let pem = self.0.to_pkcs8_pem(LineEnding::LF)?;
-        Ok(pem)
+        Ok(self.0.to_pkcs8_pem(LineEnding::LF)?)
     }
+
     fn from_pkcs8_pem(pem: &str) -> anyhow::Result<Self> {
-        let key = SecretKey::from_pkcs8_pem(pem)?;
-        Ok(Self(key))
+        Ok(Self(SecretKey::from_pkcs8_pem(pem)?))
     }
 }
 
 impl Signer for P256KeyPair {
     fn sign(&self, message: &[u8]) -> anyhow::Result<Vec<u8>> {
-        let mut signing_key = SigningKey::from(&self.0);
-        let sig: Signature = signing_key.sign(message);
+        let signing_key = SigningKey::from(&self.0);
+        let sig: Signature = signing_key.try_sign(message)?;
         Ok(sig.to_der().as_bytes().to_vec())
     }
 }
@@ -66,9 +68,6 @@ impl Signer for P256KeyPair {
 struct P256PublicKey(p256::PublicKey);
 
 impl PublicKey for P256PublicKey {
-    fn to_sec1_bytes(&self) -> Box<[u8]> {
-        self.0.to_sec1_bytes()
-    }
     fn to_encoded_point_bytes(&self) -> Box<[u8]> {
         self.0.to_encoded_point(true).as_bytes().into()
     }
@@ -88,12 +87,12 @@ impl WithMulticodec for P256PublicKey {
 pub(crate) struct P256KeyParser;
 
 impl KeyParser for P256KeyParser {
-    fn parse(&self, public_key: Vec<u8>) -> Result<Box<dyn PublicKey>, crate::parser::ParseError> {
-        let point = p256::EncodedPoint::from_bytes(public_key)
-            .map_err(|_| crate::parser::ParseError::InvalidPublicKey)?;
+    fn parse(&self, public_key: &[u8]) -> Result<Box<dyn PublicKey>, ParseError> {
+        let point =
+            p256::EncodedPoint::from_bytes(public_key).map_err(|_| ParseError::InvalidPublicKey)?;
         let key = p256::PublicKey::from_encoded_point(&point)
             .into_option()
-            .ok_or(crate::parser::ParseError::InvalidPublicKey)?;
+            .ok_or(ParseError::InvalidPublicKey)?;
         Ok(Box::new(P256PublicKey(key)))
     }
 }
@@ -107,8 +106,8 @@ impl WithMulticodec for P256KeyParser {
 struct P256Codec;
 
 impl Multicodec for P256Codec {
-    fn code_u64(&self) -> u64 {
-        0x1200
+    fn code(&self) -> &'static [u8] {
+        CODE
     }
 }
 
@@ -125,27 +124,29 @@ mod tests {
 
     #[test]
     fn test_display() {
-        let pair = P256KeyPair::generate();
-        let did = pair.public().to_did();
-
-        let did_str = did.to_string();
-        println!("{did_str}");
-        assert!(did_str.starts_with("did:key:zDn"));
+        let did = P256KeyPair::generate().public().to_did();
+        assert!(did.to_string().starts_with("did:key:zDn"));
     }
 
     #[test]
     fn test_jwk() {
-        let pair = P256KeyPair::generate();
-        let _ = pair.public().to_jwk();
+        let _ = P256KeyPair::generate().public().to_jwk();
+    }
+
+    #[test]
+    fn test_jwk_has_no_private_component() {
+        let jwk = P256KeyPair::generate().public().to_jwk();
+        let json = serde_json::to_string(&jwk).expect("serialization should succeed");
+
+        assert!(!json.contains("\"d\""), "private scalar leaked into JWK");
     }
 
     #[test]
     fn test_parse() {
-        let pair = P256KeyPair::generate();
-        let did = pair.public().to_did();
-
-        let parser = DidKeyParser::default();
-        let _ = parser.parse(&did).expect("parse should succeed");
+        let did = P256KeyPair::generate().public().to_did();
+        DidKeyParser::default()
+            .parse(&did)
+            .expect("parse should succeed");
     }
 
     #[test]

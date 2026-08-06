@@ -4,7 +4,7 @@
 //!
 //! ```
 //! use xdid::{
-//!     methods::key::{
+//!     methods::key::keys::{
 //!         DidKeyPair,
 //!         PublicKey,
 //!         p256::P256KeyPair,
