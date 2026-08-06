@@ -1,26 +1,24 @@
 use jose_jwk::Jwk;
-use p256::{
-    elliptic_curve::{
-        rand_core::OsRng,
-        zeroize::Zeroizing,
-    },
-    pkcs8::{
-        DecodePrivateKey,
-        LineEnding,
-    },
-};
 use p384::{
     SecretKey,
     ecdsa::{
         Signature,
         SigningKey,
-        signature::SignerMut,
+        signature::Signer as _,
     },
-    elliptic_curve::sec1::{
-        FromEncodedPoint,
-        ToEncodedPoint,
+    elliptic_curve::{
+        rand_core::OsRng,
+        sec1::{
+            FromEncodedPoint,
+            ToEncodedPoint,
+        },
+        zeroize::Zeroizing,
     },
-    pkcs8::EncodePrivateKey,
+    pkcs8::{
+        DecodePrivateKey,
+        EncodePrivateKey,
+        LineEnding,
+    },
 };
 
 use super::{
@@ -31,15 +29,18 @@ use super::{
     Signer,
     WithMulticodec,
 };
+use crate::parser::ParseError;
 
-#[derive(Clone, PartialEq, Eq)]
+/// Multicodec `p384-pub`, as an unsigned varint.
+const CODE: &[u8] = &[0x81, 0x24];
+
+#[derive(Clone)]
 pub struct P384KeyPair(SecretKey);
 
 impl DidKeyPair for P384KeyPair {
     fn generate() -> Self {
         let mut rng = OsRng;
-        let secret = SecretKey::random(&mut rng);
-        Self(secret)
+        Self(SecretKey::random(&mut rng))
     }
 
     fn public(&self) -> impl PublicKey {
@@ -47,19 +48,18 @@ impl DidKeyPair for P384KeyPair {
     }
 
     fn to_pkcs8_pem(&self) -> anyhow::Result<Zeroizing<String>> {
-        let pem = self.0.to_pkcs8_pem(LineEnding::LF)?;
-        Ok(pem)
+        Ok(self.0.to_pkcs8_pem(LineEnding::LF)?)
     }
+
     fn from_pkcs8_pem(pem: &str) -> anyhow::Result<Self> {
-        let key = SecretKey::from_pkcs8_pem(pem)?;
-        Ok(Self(key))
+        Ok(Self(SecretKey::from_pkcs8_pem(pem)?))
     }
 }
 
 impl Signer for P384KeyPair {
     fn sign(&self, message: &[u8]) -> anyhow::Result<Vec<u8>> {
-        let mut signing_key = SigningKey::from(&self.0);
-        let sig: Signature = signing_key.sign(message);
+        let signing_key = SigningKey::from(&self.0);
+        let sig: Signature = signing_key.try_sign(message)?;
         Ok(sig.to_der().as_bytes().to_vec())
     }
 }
@@ -68,9 +68,6 @@ impl Signer for P384KeyPair {
 struct P384PublicKey(p384::PublicKey);
 
 impl PublicKey for P384PublicKey {
-    fn to_sec1_bytes(&self) -> Box<[u8]> {
-        self.0.to_sec1_bytes()
-    }
     fn to_encoded_point_bytes(&self) -> Box<[u8]> {
         self.0.to_encoded_point(true).as_bytes().into()
     }
@@ -90,12 +87,12 @@ impl WithMulticodec for P384PublicKey {
 pub(crate) struct P384KeyParser;
 
 impl KeyParser for P384KeyParser {
-    fn parse(&self, public_key: Vec<u8>) -> Result<Box<dyn PublicKey>, crate::parser::ParseError> {
-        let point = p384::EncodedPoint::from_bytes(public_key)
-            .map_err(|_| crate::parser::ParseError::InvalidPublicKey)?;
+    fn parse(&self, public_key: &[u8]) -> Result<Box<dyn PublicKey>, ParseError> {
+        let point =
+            p384::EncodedPoint::from_bytes(public_key).map_err(|_| ParseError::InvalidPublicKey)?;
         let key = p384::PublicKey::from_encoded_point(&point)
             .into_option()
-            .ok_or(crate::parser::ParseError::InvalidPublicKey)?;
+            .ok_or(ParseError::InvalidPublicKey)?;
         Ok(Box::new(P384PublicKey(key)))
     }
 }
@@ -109,8 +106,8 @@ impl WithMulticodec for P384KeyParser {
 struct P384Codec;
 
 impl Multicodec for P384Codec {
-    fn code_u64(&self) -> u64 {
-        0x1201
+    fn code(&self) -> &'static [u8] {
+        CODE
     }
 }
 
@@ -127,27 +124,29 @@ mod tests {
 
     #[test]
     fn test_display() {
-        let pair = P384KeyPair::generate();
-        let did = pair.public().to_did();
-
-        let did_str = did.to_string();
-        println!("{did_str}");
-        assert!(did_str.starts_with("did:key:z82"));
+        let did = P384KeyPair::generate().public().to_did();
+        assert!(did.to_string().starts_with("did:key:z82"));
     }
 
     #[test]
     fn test_jwk() {
-        let pair = P384KeyPair::generate();
-        let _ = pair.public().to_jwk();
+        let _ = P384KeyPair::generate().public().to_jwk();
+    }
+
+    #[test]
+    fn test_jwk_has_no_private_component() {
+        let jwk = P384KeyPair::generate().public().to_jwk();
+        let json = serde_json::to_string(&jwk).expect("serialization should succeed");
+
+        assert!(!json.contains("\"d\""), "private scalar leaked into JWK");
     }
 
     #[test]
     fn test_parse() {
-        let pair = P384KeyPair::generate();
-        let did = pair.public().to_did();
-
-        let parser = DidKeyParser::default();
-        let _ = parser.parse(&did).expect("parse should succeed");
+        let did = P384KeyPair::generate().public().to_did();
+        DidKeyParser::default()
+            .parse(&did)
+            .expect("parse should succeed");
     }
 
     #[test]

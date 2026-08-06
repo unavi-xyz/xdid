@@ -1,14 +1,14 @@
+use std::str::FromStr;
+
 use serde_json::Value;
 use xdid_core::{
-    did::{
-        Did,
-        MethodId,
-        MethodName,
-    },
+    did::Did,
     did_url::{
-        DidUrl,
-        RelativeDidUrl,
-        RelativeDidUrlPath,
+        relative::{
+            RelativeDidUrl,
+            RelativeDidUrlPath,
+        },
+        url::DidUrl,
     },
     document::{
         Document,
@@ -21,37 +21,34 @@ use xdid_core::{
 fn test_document_serde() {
     const EXPECTED_RAW: &[u8] = include_bytes!("./document-expected.json");
 
-    let did = Did {
-        method_name: MethodName("web".into()),
-        method_id:   MethodId("localhost%3A4000".to_string()),
-    };
+    let did = Did::from_str("did:web:localhost%3A4000").expect("valid DID");
+
+    let owner = DidUrl::new(did.clone(), None, None, Some("owner".into())).expect("valid DID URL");
 
     let doc = Document {
+        context:               None,
         id:                    did.clone(),
         also_known_as:         None,
-        assertion_method:      Some(vec![VerificationMethod::RelativeUrl(RelativeDidUrl {
-            fragment: Some("owner".into()),
-            path:     RelativeDidUrlPath::Empty,
-            query:    None,
-        })]),
+        assertion_method:      Some(vec![VerificationMethod::RelativeUrl(
+            RelativeDidUrl::new(RelativeDidUrlPath::Empty, None, Some("owner".into()))
+                .expect("valid relative DID URL"),
+        )]),
         authentication:        None,
-        capability_delegation: Some(vec![VerificationMethod::Url(DidUrl {
-            did:          did.clone(),
-            fragment:     Some("owner".into()),
-            path_abempty: None,
-            query:        Some("test-query".into()),
-        })]),
+        capability_delegation: Some(vec![VerificationMethod::Url(
+            DidUrl::new(
+                did.clone(),
+                None,
+                Some("test-query".into()),
+                Some("owner".into()),
+            )
+            .expect("valid DID URL"),
+        )]),
         capability_invocation: None,
         controller:            None,
         key_agreement:         None,
         service:               None,
         verification_method:   Some(vec![VerificationMethodMap {
-            id:                   DidUrl {
-                did:          did.clone(),
-                fragment:     Some("owner".into()),
-                path_abempty: None,
-                query:        None,
-            },
+            id:                   owner,
             controller:           did,
             typ:                  "JsonWebKey2020".into(),
             public_key_multibase: None,

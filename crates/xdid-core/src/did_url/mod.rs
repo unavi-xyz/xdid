@@ -1,8 +1,2 @@
-mod relative;
-mod url;
-
-pub use relative::{
-    RelativeDidUrl,
-    RelativeDidUrlPath,
-};
-pub use url::DidUrl;
+pub mod relative;
+pub mod url;

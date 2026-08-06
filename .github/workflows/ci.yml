@@ -4,19 +4,36 @@ on:
     branches:
       - main
   pull_request:
+permissions:
+  contents: read
 jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-        with:
-          ref: ${{ github.event.pull_request.head.ref }}
+      - uses: actions/checkout@v7
       - uses: DeterminateSystems/flake-checker-action@v12
       - uses: DeterminateSystems/determinate-nix-action@v3
         with:
           extra-conf: extra-experimental-features = pipe-operators
-      - uses: DeterminateSystems/magic-nix-cache-action@main
       - run: nix flake check
+  advisories:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: DeterminateSystems/determinate-nix-action@v3
+        with:
+          extra-conf: extra-experimental-features = pipe-operators
+      - run: nix develop -c cargo deny check advisories
+  readme:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: DeterminateSystems/determinate-nix-action@v3
+        with:
+          extra-conf: extra-experimental-features = pipe-operators
       - run: nix develop -c cargo ws exec --no-bail -- cargo rdme --force
       - uses: EndBug/add-and-commit@v10
         with:
