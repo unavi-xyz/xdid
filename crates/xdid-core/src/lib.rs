@@ -1,4 +1,3 @@
-
 //! Core types for DID methods to implement.
 
 use std::{
