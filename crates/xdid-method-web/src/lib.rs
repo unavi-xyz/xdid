@@ -1,5 +1,8 @@
 //! [xdid](https://github.com/unavi-xyz/xdid) implementation of [did:web](https://w3c-ccg.github.io/did-method-web/).
 
+#[cfg(all(not(feature = "tls-ring"), not(feature = "tls-aws-lc-rs")))]
+compile_error!("xdid-method-web: enable exactly one of `tls-ring` or `tls-aws-lc-rs`");
+
 use std::time::Duration;
 
 use reqwest::{
@@ -76,14 +79,39 @@ impl MethodDidWeb {
     ///
     /// Returns an error if the HTTP client cannot be constructed.
     pub fn with_config(config: Config) -> Result<Self, ClientError> {
-        let client = build_client(&config).map_err(|e| ClientError(e.to_string()))?;
+        let client = build_client(&config)?;
         Ok(Self { client, config })
     }
 }
 
+/// The TLS backend, chosen downstream so this crate stays crypto-agnostic.
+/// Exactly one of `tls-ring` / `tls-aws-lc-rs` must be enabled (the default
+/// matches the historical `reqwest` backend).
 #[cfg(not(target_family = "wasm"))]
-fn build_client(config: &Config) -> Result<Client, reqwest::Error> {
+#[cfg(feature = "tls-ring")]
+fn tls_provider() -> std::sync::Arc<rustls::crypto::CryptoProvider> {
+    std::sync::Arc::new(rustls::crypto::ring::default_provider())
+}
+
+#[cfg(not(target_family = "wasm"))]
+#[cfg(feature = "tls-aws-lc-rs")]
+fn tls_provider() -> std::sync::Arc<rustls::crypto::CryptoProvider> {
+    std::sync::Arc::new(rustls::crypto::aws_lc_rs::default_provider())
+}
+
+#[cfg(not(target_family = "wasm"))]
+fn build_client(config: &Config) -> Result<Client, ClientError> {
+    use rustls_platform_verifier::BuilderVerifierExt;
+
+    let tls = rustls::ClientConfig::builder_with_provider(tls_provider())
+        .with_safe_default_protocol_versions()
+        .map_err(|e| ClientError(e.to_string()))?
+        .with_platform_verifier()
+        .map_err(|e| ClientError(e.to_string()))?
+        .with_no_client_auth();
+
     ClientBuilder::new()
+        .use_preconfigured_tls(tls)
         .user_agent(USER_AGENT)
         // A redirect would escape the target checks applied to the initial URL.
         .redirect(reqwest::redirect::Policy::none())
@@ -91,13 +119,17 @@ fn build_client(config: &Config) -> Result<Client, reqwest::Error> {
         .connect_timeout(config.connect_timeout)
         .timeout(config.request_timeout)
         .build()
+        .map_err(|e| ClientError(e.to_string()))
 }
 
 // The wasm client is the browser's; it applies its own transport policy and
 // exposes no knobs for redirects or timeouts.
 #[cfg(target_family = "wasm")]
-fn build_client(_config: &Config) -> Result<Client, reqwest::Error> {
-    ClientBuilder::new().user_agent(USER_AGENT).build()
+fn build_client(_config: &Config) -> Result<Client, ClientError> {
+    ClientBuilder::new()
+        .user_agent(USER_AGENT)
+        .build()
+        .map_err(|e| ClientError(e.to_string()))
 }
 
 impl Method for MethodDidWeb {

@@ -10,16 +10,18 @@ version.workspace    = true
 workspace = true
 
 [features]
-default = ["did-key", "did-web"]
-did-key = ["dep:xdid-method-key"]
-did-web = ["dep:xdid-method-web"]
+default       = ["did-key", "did-web", "tls-aws-lc-rs"]
+did-key       = ["dep:xdid-method-key"]
+did-web       = ["dep:xdid-method-web"]
+tls-aws-lc-rs = ["xdid-method-web/tls-aws-lc-rs"]
+tls-ring      = ["xdid-method-web/tls-ring"]
 
 [dependencies]
 smallvec            = "1.15.1"
 thiserror.workspace = true
 xdid-core           = { path = "../xdid-core", version = "0.8.0" }
 xdid-method-key     = { optional = true, path = "../xdid-method-key", version = "0.8.0" }
-xdid-method-web     = { optional = true, path = "../xdid-method-web", version = "0.8.0" }
+xdid-method-web     = { default-features = false, optional = true, path = "../xdid-method-web", version = "0.8.0" }
 
 [dev-dependencies]
 hyper                = { features = ["http1", "server"], version = "1.9.0" }
