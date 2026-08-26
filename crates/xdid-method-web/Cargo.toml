@@ -33,4 +33,4 @@ send_wrapper = { features = ["futures"], version = "0.6.0" }
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
 rustls                   = { default-features = false, features = ["std", "tls12"], version = "0.23" }
 rustls-platform-verifier = "0.7.0"
-tokio                    = { features = ["net"], version = "1.53.1" }
+tokio                    = { features = ["net", "time"], version = "1.53.1" }

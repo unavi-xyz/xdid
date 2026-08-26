@@ -1,7 +1,7 @@
 //! [xdid](https://github.com/unavi-xyz/xdid) implementation of [did:web](https://w3c-ccg.github.io/did-method-web/).
 
 #[cfg(all(not(feature = "tls-ring"), not(feature = "tls-aws-lc-rs")))]
-compile_error!("xdid-method-web: enable exactly one of `tls-ring` or `tls-aws-lc-rs`");
+compile_error!("xdid-method-web: enable `tls-ring` or `tls-aws-lc-rs`");
 
 use std::time::Duration;
 
@@ -85,18 +85,20 @@ impl MethodDidWeb {
 }
 
 /// The TLS backend, chosen downstream so this crate stays crypto-agnostic.
-/// Exactly one of `tls-ring` / `tls-aws-lc-rs` must be enabled (the default
-/// matches the historical `reqwest` backend).
-#[cfg(not(target_family = "wasm"))]
-#[cfg(feature = "tls-ring")]
-fn tls_provider() -> std::sync::Arc<rustls::crypto::CryptoProvider> {
-    std::sync::Arc::new(rustls::crypto::ring::default_provider())
-}
-
+/// `tls-aws-lc-rs` is the default (mirroring rustls's default provider) and
+/// wins when both features are enabled; `tls-ring` is used only when
+/// `tls-aws-lc-rs` is off.
 #[cfg(not(target_family = "wasm"))]
 #[cfg(feature = "tls-aws-lc-rs")]
 fn tls_provider() -> std::sync::Arc<rustls::crypto::CryptoProvider> {
     std::sync::Arc::new(rustls::crypto::aws_lc_rs::default_provider())
+}
+
+#[cfg(not(target_family = "wasm"))]
+#[cfg(feature = "tls-ring")]
+#[cfg(not(feature = "tls-aws-lc-rs"))]
+fn tls_provider() -> std::sync::Arc<rustls::crypto::CryptoProvider> {
+    std::sync::Arc::new(rustls::crypto::ring::default_provider())
 }
 
 #[cfg(not(target_family = "wasm"))]
@@ -167,7 +169,7 @@ async fn resolve_inner(
         parse::parse_url(&did, config.allow_local).map_err(|_| ResolutionError::InvalidDid)?;
 
     if !config.allow_local {
-        check_target(&url).await?;
+        check_target(&url, config.connect_timeout).await?;
     }
 
     let res = client
@@ -209,7 +211,7 @@ fn fetch_failed(e: reqwest::Error) -> ResolutionError {
 /// still return a public address here and a private one there. Closing that
 /// race needs a custom connector that checks the peer at connect time.
 #[cfg(not(target_family = "wasm"))]
-async fn check_target(url: &Url) -> Result<(), ResolutionError> {
+async fn check_target(url: &Url, timeout: Duration) -> Result<(), ResolutionError> {
     use std::net::IpAddr;
 
     let host = url.host_str().ok_or(ResolutionError::InvalidDid)?;
@@ -219,8 +221,11 @@ async fn check_target(url: &Url) -> Result<(), ResolutionError> {
     let addrs = if let Ok(ip) = bare.parse::<IpAddr>() {
         vec![ip]
     } else {
-        tokio::net::lookup_host((host, port))
+        // The client's own timeouts start at connect, leaving this lookup as the
+        // one unbounded phase of a resolve.
+        tokio::time::timeout(timeout, tokio::net::lookup_host((host, port)))
             .await
+            .map_err(|_| ResolutionError::ResolutionFailed("target lookup timed out".into()))?
             .map_err(|e| ResolutionError::ResolutionFailed(e.to_string()))?
             .map(|addr| addr.ip())
             .collect()
@@ -234,7 +239,7 @@ async fn check_target(url: &Url) -> Result<(), ResolutionError> {
 }
 
 #[cfg(target_family = "wasm")]
-async fn check_target(_url: &Url) -> Result<(), ResolutionError> {
+async fn check_target(_url: &Url, _timeout: Duration) -> Result<(), ResolutionError> {
     Ok(())
 }
 
@@ -271,4 +276,21 @@ async fn read_capped(res: Response, max: u64) -> Result<Vec<u8>, ResolutionError
     }
 
     Ok(body.to_vec())
+}
+
+#[cfg(all(test, not(target_family = "wasm")))]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn a_literal_target_is_checked_without_a_lookup() {
+        let public = Url::parse("https://93.184.216.34/.well-known/did.json").expect("valid url");
+        let private = Url::parse("https://10.0.0.1/.well-known/did.json").expect("valid url");
+
+        assert!(check_target(&public, Duration::ZERO).await.is_ok());
+        assert!(matches!(
+            check_target(&private, Duration::ZERO).await,
+            Err(ResolutionError::TargetNotAllowed)
+        ));
+    }
 }
