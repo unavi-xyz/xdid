@@ -20,8 +20,11 @@ pub enum ParseError {
 
 /// Builds the document URL for a `did:web`.
 ///
-/// `allow_local` permits plaintext HTTP for `localhost`; see [`crate::Config`].
-pub fn parse_url(did: &Did, allow_local: bool) -> Result<Url, ParseError> {
+/// The scheme is always HTTPS. Loosening it for a local development server is
+/// [`TargetPolicy::downgrade_local_scheme`]'s job.
+///
+/// [`TargetPolicy::downgrade_local_scheme`]: crate::target::TargetPolicy::downgrade_local_scheme
+pub fn parse_url(did: &Did) -> Result<Url, ParseError> {
     // web-did = "did:web:" domain-name *( ":" path )
     let mut parts = did.method_id.as_str().split(':');
 
@@ -30,14 +33,8 @@ pub fn parse_url(did: &Did, allow_local: bool) -> Result<Url, ParseError> {
         return Err(ParseError::EmptyDomain);
     }
 
-    let scheme = if allow_local && is_localhost(&domain) {
-        "http"
-    } else {
-        "https"
-    };
-
     let mut url =
-        Url::parse(&format!("{scheme}://{domain}")).map_err(|_| ParseError::InvalidDomain)?;
+        Url::parse(&format!("https://{domain}")).map_err(|_| ParseError::InvalidDomain)?;
 
     // A decoded domain can smuggle userinfo or a path into the authority; the
     // parser reports those faithfully, so reject anything beyond a bare host.
@@ -91,10 +88,6 @@ fn decode(value: &str) -> Result<String, ParseError> {
         .map_err(|_| ParseError::InvalidEncoding)
 }
 
-fn is_localhost(domain: &str) -> bool {
-    domain.split(':').next() == Some("localhost")
-}
-
 #[cfg(test)]
 mod tests {
     use std::str::FromStr;
@@ -102,7 +95,7 @@ mod tests {
     use super::*;
 
     fn url_of(did: &str) -> Result<String, ParseError> {
-        parse_url(&Did::from_str(did).expect("valid DID"), false).map(String::from)
+        parse_url(&Did::from_str(did).expect("valid DID")).map(String::from)
     }
 
     #[test]
@@ -130,16 +123,10 @@ mod tests {
     }
 
     #[test]
-    fn test_localhost_https_unless_allowed() {
-        let did = Did::from_str("did:web:localhost%3A3000").expect("valid DID");
-
+    fn test_localhost_is_https() {
         assert_eq!(
-            String::from(parse_url(&did, false).expect("valid")),
+            url_of("did:web:localhost%3A3000").expect("valid"),
             "https://localhost:3000/.well-known/did.json"
-        );
-        assert_eq!(
-            String::from(parse_url(&did, true).expect("valid")),
-            "http://localhost:3000/.well-known/did.json"
         );
     }
 

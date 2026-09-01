@@ -9,7 +9,6 @@ use reqwest::{
     Client,
     ClientBuilder,
     Response,
-    Url,
 };
 use thiserror::Error;
 use xdid_core::{
@@ -20,8 +19,10 @@ use xdid_core::{
     document::Document,
 };
 
+use crate::target::TargetPolicy;
+
 mod parse;
-mod policy;
+pub mod target;
 
 const NAME: &str = "web";
 const USER_AGENT: &str = concat!("xdid/", env!("CARGO_PKG_VERSION"));
@@ -35,13 +36,12 @@ pub struct Config {
     pub max_document_bytes: u64,
     pub connect_timeout:    Duration,
     pub request_timeout:    Duration,
-    /// Permits loopback, private and link-local targets, and plaintext HTTP for
-    /// `localhost`. Needed to resolve against a local server. Whenever the DID
-    /// being resolved is attacker-controlled, this is an SSRF vector.
+    /// Which hosts a resolution may reach.
     ///
-    /// Leaving it off also disables the system proxy, since a proxy resolves
-    /// the target host itself and would bypass the address checks.
-    pub allow_local:        bool,
+    /// [`TargetPolicy::PublicOnly`] also disables the system proxy, since a
+    /// proxy resolves the target host itself and would bypass the address
+    /// checks.
+    pub target:             TargetPolicy,
 }
 
 impl Default for Config {
@@ -50,7 +50,7 @@ impl Default for Config {
             max_document_bytes: 64 * 1024,
             connect_timeout:    Duration::from_secs(5),
             request_timeout:    Duration::from_secs(10),
-            allow_local:        false,
+            target:             TargetPolicy::PublicOnly,
         }
     }
 }
@@ -117,21 +117,20 @@ fn build_client(config: &Config) -> Result<Client, ClientError> {
         .user_agent(USER_AGENT)
         // A redirect would escape the target checks applied to the initial URL.
         .redirect(reqwest::redirect::Policy::none())
-        .https_only(!config.allow_local)
         .connect_timeout(config.connect_timeout)
-        .timeout(config.request_timeout);
-
-    if !config.allow_local {
-        // A proxy resolves the target host itself and connects on our behalf,
-        // so `RestrictedResolver` would only ever see the proxy's own address.
-        builder = builder.no_proxy();
-
-        // Routes DNS resolution through the same policy check the connector
-        // then uses, so there is one lookup instead of a check-then-reconnect
-        // pair a hostile resolver could answer differently.
-        builder = builder.dns_resolver(std::sync::Arc::new(RestrictedResolver {
+        .timeout(config.request_timeout)
+        // Judges the address the connector goes on to use, so validation and
+        // connection share one lookup instead of racing two a hostile resolver
+        // could answer differently.
+        .dns_resolver(std::sync::Arc::new(PolicyResolver {
+            policy:  config.target,
             timeout: config.connect_timeout,
         }));
+
+    if config.target == TargetPolicy::PublicOnly {
+        // A proxy resolves the target host itself and connects on our behalf,
+        // so the resolver above would only ever see the proxy's own address.
+        builder = builder.no_proxy().https_only(true);
     }
 
     builder.build().map_err(|e| ClientError(e.to_string()))
@@ -178,17 +177,13 @@ async fn resolve_inner(
         return Err(ResolutionError::InvalidDid);
     }
 
-    let url =
-        parse::parse_url(&did, config.allow_local).map_err(|_| ResolutionError::InvalidDid)?;
+    let mut url = parse::parse_url(&did).map_err(|_| ResolutionError::InvalidDid)?;
+    config.target.downgrade_local_scheme(&mut url);
 
-    if !config.allow_local {
-        // Only covers a literal-IP DID: the connector skips DNS resolution
-        // (and so `RestrictedResolver`) whenever the host is already an IP.
-        // A hostname target is checked by `RestrictedResolver` at connect
-        // time instead, since a check here would race a second, independent
-        // lookup done by the connector.
-        check_literal_target(&url)?;
-    }
+    config
+        .target
+        .permits_url(&url)
+        .map_err(|_| ResolutionError::TargetNotAllowed)?;
 
     let res = client
         .get(url)
@@ -245,45 +240,19 @@ fn fetch_failed(e: reqwest::Error) -> ResolutionError {
     ResolutionError::ResolutionFailed(e.without_url().to_string())
 }
 
-/// Rejects a literal-IP target outside public unicast space before any
-/// connection is made.
-///
-/// A hostname target isn't checked here: the connector resolves it itself,
-/// so a check against a separate lookup would race a hostile resolver that
-/// answers the two lookups differently. `RestrictedResolver` closes that gap
-/// by making the validated lookup the one the connector then uses.
-#[cfg(not(target_family = "wasm"))]
-fn check_literal_target(url: &Url) -> Result<(), ResolutionError> {
-    use std::net::IpAddr;
-
-    let host = url.host_str().ok_or(ResolutionError::InvalidDid)?;
-    let bare = host.trim_start_matches('[').trim_end_matches(']');
-
-    if let Ok(ip) = bare.parse::<IpAddr>()
-        && policy::is_restricted(ip)
-    {
-        return Err(ResolutionError::TargetNotAllowed);
-    }
-
-    Ok(())
-}
-
-#[cfg(target_family = "wasm")]
-fn check_literal_target(_url: &Url) -> Result<(), ResolutionError> {
-    Ok(())
-}
-
-/// A [`reqwest::dns::Resolve`] that rejects hostnames resolving to a
-/// restricted address, so validation and connection share one lookup instead
+/// A [`reqwest::dns::Resolve`] that rejects a hostname resolving to an address
+/// its policy refuses, so validation and connection share one lookup instead
 /// of racing two independent ones.
 #[cfg(not(target_family = "wasm"))]
-struct RestrictedResolver {
+struct PolicyResolver {
+    policy:  TargetPolicy,
     timeout: Duration,
 }
 
 #[cfg(not(target_family = "wasm"))]
-impl reqwest::dns::Resolve for RestrictedResolver {
+impl reqwest::dns::Resolve for PolicyResolver {
     fn resolve(&self, name: reqwest::dns::Name) -> reqwest::dns::Resolving {
+        let policy = self.policy;
         let timeout = self.timeout;
         let host = name.as_str().to_owned();
 
@@ -299,7 +268,7 @@ impl reqwest::dns::Resolve for RestrictedResolver {
                     .map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)?
                     .collect();
 
-            if addrs.is_empty() || addrs.iter().any(|addr| policy::is_restricted(addr.ip())) {
+            if addrs.is_empty() || !addrs.iter().all(|addr| policy.permits_address(addr.ip())) {
                 return Err(Box::new(RestrictedTarget) as Box<dyn std::error::Error + Send + Sync>);
             }
 
@@ -375,29 +344,34 @@ async fn read_capped(res: Response, max: u64) -> Result<Vec<u8>, ResolutionError
 mod tests {
     use super::*;
 
-    #[test]
-    fn a_literal_target_is_checked_without_a_lookup() {
-        let public = Url::parse("https://93.184.216.34/.well-known/did.json").expect("valid url");
-        let private = Url::parse("https://10.0.0.1/.well-known/did.json").expect("valid url");
-
-        assert!(check_literal_target(&public).is_ok());
-        assert!(matches!(
-            check_literal_target(&private),
-            Err(ResolutionError::TargetNotAllowed)
-        ));
+    const fn resolver_for(policy: TargetPolicy) -> PolicyResolver {
+        PolicyResolver {
+            policy,
+            timeout: Duration::from_secs(5),
+        }
     }
 
     #[tokio::test]
     async fn a_hostname_resolving_to_a_restricted_address_is_rejected() {
-        let resolver = RestrictedResolver {
-            timeout: Duration::from_secs(5),
-        };
         let name: reqwest::dns::Name = "localhost".parse().expect("valid name");
 
-        let Err(err) = reqwest::dns::Resolve::resolve(&resolver, name).await else {
+        let Err(err) =
+            reqwest::dns::Resolve::resolve(&resolver_for(TargetPolicy::PublicOnly), name).await
+        else {
             panic!("localhost resolves to a loopback address");
         };
 
         assert!(err.downcast_ref::<RestrictedTarget>().is_some(), "{err}");
+    }
+
+    #[tokio::test]
+    async fn allow_local_resolves_the_same_hostname() {
+        let name: reqwest::dns::Name = "localhost".parse().expect("valid name");
+
+        let addrs = reqwest::dns::Resolve::resolve(&resolver_for(TargetPolicy::AllowLocal), name)
+            .await
+            .expect("a loopback address is permitted under AllowLocal");
+
+        assert!(addrs.count() > 0);
     }
 }

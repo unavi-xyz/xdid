@@ -105,6 +105,7 @@ mod did_web_tests {
     use xdid_method_web::{
         Config,
         MethodDidWeb,
+        target::TargetPolicy,
     };
 
     use super::*;
@@ -118,7 +119,7 @@ mod did_web_tests {
 
     fn local_config() -> Config {
         Config {
-            allow_local: true,
+            target: TargetPolicy::AllowLocal,
             ..Config::default()
         }
     }
