@@ -1074,6 +1074,8 @@ checksum = "280fa263807fe0782ecb6f2baadc28dffc04e00558a58e33bfdb801d11fd58e7"
 dependencies = [
  "jose-b64",
  "jose-jwa",
+ "p256",
+ "p384",
  "serde",
  "zeroize",
 ]

@@ -21,10 +21,10 @@ impl Default for DidKeyParser {
         let mut parsers = SmallVec::<[Box<dyn KeyParser>; 2]>::new();
 
         #[cfg(feature = "p256")]
-        parsers.push(Box::new(crate::keys::p256::P256KeyParser));
+        parsers.push(Box::new(crate::keys::p256::Parser));
 
         #[cfg(feature = "p384")]
-        parsers.push(Box::new(crate::keys::p384::P384KeyParser));
+        parsers.push(Box::new(crate::keys::p384::Parser));
 
         Self { parsers }
     }
@@ -48,7 +48,7 @@ impl DidKeyParser {
         }
 
         for parser in &self.parsers {
-            let code = parser.codec().code();
+            let code = parser.code();
 
             if let Some(bytes) = inner.strip_prefix(code) {
                 let key = parser.parse(bytes)?;
