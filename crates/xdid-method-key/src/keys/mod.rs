@@ -10,6 +10,10 @@ use zeroize::Zeroizing;
 #[cfg(feature = "p256")] pub mod p256;
 #[cfg(feature = "p384")] pub mod p384;
 
+/// Const-evaluated, so a name that is not `1*method-char` fails the build and
+/// `to_did` carries no check of its own.
+const METHOD: MethodName = MethodName::from_static(crate::NAME).unwrap();
+
 /// Keeps the signing backend out of the public API, where its version would
 /// otherwise be part of this crate's semver contract.
 #[derive(Debug, Error)]
@@ -85,7 +89,7 @@ pub trait PublicKey: WithMulticodec {
         inner.extend_from_slice(&bytes);
 
         Did {
-            method_name: MethodName::KEY,
+            method_name: METHOD,
             method_id:   MethodId::from_base58btc(&inner),
         }
     }

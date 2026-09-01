@@ -106,10 +106,30 @@ impl<'de> Deserialize<'de> for Did {
 pub struct MethodName(SmolStr);
 
 impl MethodName {
-    /// The `key` method.
-    pub const KEY: Self = Self(SmolStr::new_static("key"));
-    /// The `web` method.
-    pub const WEB: Self = Self(SmolStr::new_static("web"));
+    /// Builds a name from a literal, or `None` if it is not `1*method-char`.
+    ///
+    /// Const, so a method implementation can name itself in a `const` binding
+    /// and have a bad literal rejected at compile time rather than checked on
+    /// every call.
+    #[must_use]
+    pub const fn from_static(name: &'static str) -> Option<Self> {
+        let bytes = name.as_bytes();
+
+        if bytes.is_empty() {
+            return None;
+        }
+
+        let mut i = 0;
+        while i < bytes.len() {
+            if !bytes[i].is_ascii_lowercase() && !bytes[i].is_ascii_digit() {
+                return None;
+            }
+
+            i += 1;
+        }
+
+        Some(Self(SmolStr::new_static(name)))
+    }
 
     #[must_use]
     pub fn as_str(&self) -> &str {
