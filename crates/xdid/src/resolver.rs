@@ -129,19 +129,7 @@ mod did_web_tests {
     }
 
     fn document_for(did: &Did) -> Document {
-        Document {
-            context:               None,
-            id:                    did.clone(),
-            also_known_as:         None,
-            assertion_method:      None,
-            authentication:        None,
-            capability_delegation: None,
-            capability_invocation: None,
-            controller:            None,
-            key_agreement:         None,
-            service:               None,
-            verification_method:   None,
-        }
+        Document::new(did.clone())
     }
 
     struct Reply {

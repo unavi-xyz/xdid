@@ -4,11 +4,11 @@ use serde_json::Value;
 use xdid_core::{
     did::Did,
     did_url::{
+        DidUrl,
         relative::{
             RelativeDidUrl,
             RelativeDidUrlPath,
         },
-        url::DidUrl,
     },
     document::{
         Document,

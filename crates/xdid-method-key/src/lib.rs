@@ -6,7 +6,7 @@ use xdid_core::{
     MethodFuture,
     ResolutionError,
     did::Did,
-    did_url::url::DidUrl,
+    did_url::DidUrl,
     document::{
         Document,
         VerificationMethod,
@@ -43,22 +43,17 @@ fn resolve_inner(did: &Did) -> Result<Document, ResolutionError> {
         .map_err(|_| ResolutionError::InvalidDid)?;
 
     Ok(Document {
-        context:               None,
-        id:                    did.clone(),
-        also_known_as:         None,
-        controller:            None,
-        verification_method:   Some(vec![VerificationMethodMap {
+        verification_method: Some(vec![VerificationMethodMap {
             id:                   did_url.clone(),
             typ:                  "JsonWebKey2020".into(),
             controller:           did.clone(),
             public_key_jwk:       Some(did_key.to_jwk()),
             public_key_multibase: None,
         }]),
-        authentication:        Some(vec![VerificationMethod::Url(did_url.clone())]),
-        assertion_method:      Some(vec![VerificationMethod::Url(did_url.clone())]),
+        authentication: Some(vec![VerificationMethod::Url(did_url.clone())]),
+        assertion_method: Some(vec![VerificationMethod::Url(did_url.clone())]),
         capability_invocation: Some(vec![VerificationMethod::Url(did_url.clone())]),
         capability_delegation: Some(vec![VerificationMethod::Url(did_url)]),
-        service:               None,
-        key_agreement:         None,
+        ..Document::new(did.clone())
     })
 }

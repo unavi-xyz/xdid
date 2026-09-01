@@ -16,7 +16,7 @@ use crate::uri::{
     is_segment,
 };
 
-/// Fields are private; see [`super::url::DidUrl`].
+/// Fields are private; see [`super::DidUrl`].
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RelativeDidUrl {
     path:     RelativeDidUrlPath,

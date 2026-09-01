@@ -13,23 +13,32 @@ use smol_str::SmolStr;
 use crate::{
     did::Did,
     did_url::{
+        DidUrl,
         relative::RelativeDidUrl,
-        url::DidUrl,
     },
 };
 
 #[skip_serializing_none]
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 #[serde_as]
 pub struct Document {
     /// Held as opaque JSON so that re-serializing a resolved document does not
-    /// drop it; entries may be strings or objects and are never interpreted.
+    /// drop it. Entries may be strings or objects and are never interpreted.
     #[serde(rename = "@context")]
     #[serde_as(as = "Option<OneOrMany<_>>")]
     pub context:               Option<Vec<Value>>,
     pub id:                    Did,
+    /// Identifiers the subject claims are also theirs. The DID spec makes
+    /// these claims rather than assertions, and nothing here verifies them.
+    /// Confirming one means resolving it and finding a matching claim back.
     pub also_known_as:         Option<Vec<String>>,
+    /// Supplied by whoever served the document, and not verified.
+    ///
+    /// A hostile document naming another DID here cannot mislead
+    /// [`Self::resolve_verification_method`] or its siblings, which compare
+    /// each method's own `id` against [`Self::id`] and never read this. Code
+    /// that reads it directly is what needs to be careful.
     #[serde_as(as = "Option<OneOrMany<_>>")]
     pub controller:            Option<Vec<Did>>,
     pub verification_method:   Option<Vec<VerificationMethodMap>>,
@@ -42,6 +51,50 @@ pub struct Document {
 }
 
 impl Document {
+    /// An otherwise empty document for `id`.
+    #[must_use]
+    pub const fn new(id: Did) -> Self {
+        Self {
+            context: None,
+            id,
+            also_known_as: None,
+            controller: None,
+            verification_method: None,
+            authentication: None,
+            assertion_method: None,
+            key_agreement: None,
+            capability_invocation: None,
+            capability_delegation: None,
+            service: None,
+        }
+    }
+
+    /// The verification methods this document lists under `role`, resolved to
+    /// the maps that carry their key material.
+    ///
+    /// A method whose `id` names a different DID is skipped, so a document
+    /// cannot present another identifier's key as usable under one of its own
+    /// relationships. An entry that resolves to nothing is skipped too.
+    pub fn verification_methods(
+        &self,
+        role: VerificationRole,
+    ) -> impl Iterator<Item = &VerificationMethodMap> {
+        self.methods_for(role)
+            .iter()
+            .filter_map(|method| self.resolve_verification_method(method))
+    }
+
+    fn methods_for(&self, role: VerificationRole) -> &[VerificationMethod] {
+        match role {
+            VerificationRole::Assertion => self.assertion_method.as_deref(),
+            VerificationRole::Authentication => self.authentication.as_deref(),
+            VerificationRole::CapabilityDelegation => self.capability_delegation.as_deref(),
+            VerificationRole::CapabilityInvocation => self.capability_invocation.as_deref(),
+            VerificationRole::KeyAgreement => self.key_agreement.as_deref(),
+        }
+        .unwrap_or_default()
+    }
+
     /// Returns the verification method that the provided [`DidUrl`] is
     /// referencing, restricted to a given [`VerificationRole`].
     ///
@@ -54,20 +107,11 @@ impl Document {
         url: &DidUrl,
         role: VerificationRole,
     ) -> Option<&VerificationMethodMap> {
-        let methods = match role {
-            VerificationRole::Assertion => self.assertion_method.as_deref(),
-            VerificationRole::Authentication => self.authentication.as_deref(),
-            VerificationRole::CapabilityDelegation => self.capability_delegation.as_deref(),
-            VerificationRole::CapabilityInvocation => self.capability_invocation.as_deref(),
-            VerificationRole::KeyAgreement => self.key_agreement.as_deref(),
-        }
-        .unwrap_or_default();
-
         // Every reference that denotes `url` resolves to the same map, so the
         // scan over `verification_method` happens at most once.
         let mut referenced = None;
 
-        for method in methods {
+        for method in self.methods_for(role) {
             let denotes_url = match method {
                 VerificationMethod::Map(map) => {
                     if map.id == *url && *map.id.did() == self.id {
@@ -175,9 +219,11 @@ pub struct ServiceEndpoint {
     #[serde(rename = "type")]
     #[serde_as(as = "OneOrMany<_>")]
     pub typ:              Vec<String>,
-    /// Supplied by whoever served the document and not validated here. Fetching
-    /// one on behalf of a caller carries the same server-side request forgery
-    /// exposure as resolving the DID itself, so apply a target policy first.
+    /// Supplied by whoever served the document, and not validated here.
+    ///
+    /// Fetching one carries the same server-side request forgery exposure as
+    /// resolving the DID itself, so judge it with the same target policy the
+    /// resolver used. `xdid-method-web` exposes that as `TargetPolicy`.
     #[serde_as(as = "OneOrMany<_>")]
     pub service_endpoint: Vec<String>,
 }
@@ -211,17 +257,8 @@ mod tests {
 
     fn document(id: Did, authentication: Vec<VerificationMethod>) -> Document {
         Document {
-            context: None,
-            id,
-            also_known_as: None,
-            controller: None,
-            verification_method: None,
             authentication: Some(authentication),
-            assertion_method: None,
-            key_agreement: None,
-            capability_invocation: None,
-            capability_delegation: None,
-            service: None,
+            ..Document::new(id)
         }
     }
 
@@ -312,6 +349,50 @@ mod tests {
         assert_eq!(
             doc.resolve_verification_method_url(&victim_key, VerificationRole::Authentication),
             None
+        );
+    }
+
+    #[test]
+    fn verification_methods_yields_every_resolvable_entry_for_a_role() {
+        let me = did("did:web:example.com");
+        let one = url(&me, "key1");
+        let two = url(&me, "key2");
+
+        let mut doc = document(
+            me.clone(),
+            vec![
+                VerificationMethod::Url(one.clone()),
+                VerificationMethod::Url(two.clone()),
+            ],
+        );
+        doc.verification_method = Some(vec![map(one.clone(), &me), map(two.clone(), &me)]);
+
+        assert_eq!(
+            doc.verification_methods(VerificationRole::Authentication)
+                .collect::<Vec<_>>(),
+            vec![&map(one, &me), &map(two, &me)]
+        );
+        assert_eq!(
+            doc.verification_methods(VerificationRole::KeyAgreement)
+                .count(),
+            0
+        );
+    }
+
+    #[test]
+    fn verification_methods_skips_an_entry_for_another_did() {
+        let attacker = did("did:web:evil.example");
+        let victim = did("did:web:victim.example");
+        let victim_key = url(&victim, "key1");
+
+        let mut doc = document(attacker, vec![VerificationMethod::Url(victim_key.clone())]);
+        doc.verification_method = Some(vec![map(victim_key, &victim)]);
+
+        assert_eq!(
+            doc.verification_methods(VerificationRole::Authentication)
+                .count(),
+            0,
+            "a document must not present another identifier's key as its own"
         );
     }
 
