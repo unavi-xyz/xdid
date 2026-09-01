@@ -23,7 +23,7 @@ use xdid::{
         did::Did,
         document::Document,
     },
-    methods::web::{
+    method::web::{
         Config,
         MethodDidWeb,
         target::TargetPolicy,

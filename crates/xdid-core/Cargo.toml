@@ -17,4 +17,3 @@ serde_json.workspace = true
 serde_with           = "3.18.0"
 smol_str             = { features = ["serde"], version = "0.3.6" }
 thiserror.workspace  = true
-

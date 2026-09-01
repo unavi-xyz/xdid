@@ -4,7 +4,7 @@
 //!
 //! ```
 //! use xdid::{
-//!     methods::key::keys::{
+//!     method::key::{
 //!         DidKeyPair,
 //!         PublicKey,
 //!         p256::P256KeyPair,
@@ -34,7 +34,7 @@ pub mod resolver;
 
 pub use xdid_core as core;
 
-pub mod methods {
+pub mod method {
     #[cfg(feature = "did-key")] pub use xdid_method_key as key;
     #[cfg(feature = "did-web")] pub use xdid_method_web as web;
 }

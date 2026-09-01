@@ -15,8 +15,8 @@ use xdid::{
         did::Did,
         document::Document,
     },
-    methods::{
-        key::keys::{
+    method::{
+        key::{
             DidKeyPair,
             PublicKey,
             p256::P256KeyPair,

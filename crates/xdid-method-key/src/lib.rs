@@ -14,8 +14,10 @@ use xdid_core::{
     },
 };
 
-pub mod keys;
+mod keys;
 mod parser;
+
+pub use keys::*;
 
 const NAME: &str = "key";
 
