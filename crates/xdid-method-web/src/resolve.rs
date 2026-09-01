@@ -17,15 +17,15 @@ use crate::{
 
 /// Fetches `did`'s document and checks that it speaks for `did`.
 pub async fn document(
-    client: Client,
-    config: Config,
-    did: Did,
+    client: &Client,
+    config: &Config,
+    did: &Did,
 ) -> Result<Document, ResolutionError> {
     if did.method_name.as_str() != NAME {
         return Err(ResolutionError::InvalidDid);
     }
 
-    let url = parse::parse_url(&did, config.target).map_err(|_| ResolutionError::InvalidDid)?;
+    let url = parse::parse_url(did, config.target).map_err(|_| ResolutionError::InvalidDid)?;
 
     config
         .target
@@ -63,7 +63,7 @@ pub async fn document(
     // Without this the host of `did:web:evil.com` can serve a document claiming
     // to be any other DID, and callers keying off `doc.id` attribute the
     // attacker's keys to that identifier.
-    if doc.id != did {
+    if doc.id != *did {
         return Err(ResolutionError::DocumentMismatch);
     }
 

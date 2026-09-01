@@ -26,20 +26,18 @@ impl Method for MethodDidKey {
         NAME
     }
 
-    fn resolve(&self, did: Did) -> MethodFuture<Result<Document, ResolutionError>> {
+    fn resolve<'a>(&'a self, did: &'a Did) -> MethodFuture<'a, Result<Document, ResolutionError>> {
         Box::pin(async move { resolve_inner(did) })
     }
 }
 
-fn resolve_inner(did: Did) -> Result<Document, ResolutionError> {
+fn resolve_inner(did: &Did) -> Result<Document, ResolutionError> {
     if did.method_name.as_str() != NAME {
         return Err(ResolutionError::InvalidDid);
     }
 
     let parser = DidKeyParser::default();
-    let did_key = parser
-        .parse(&did)
-        .map_err(|_| ResolutionError::InvalidDid)?;
+    let did_key = parser.parse(did).map_err(|_| ResolutionError::InvalidDid)?;
 
     let did_url = DidUrl::new(did.clone(), None, None, Some(did.method_id.as_str().into()))
         .map_err(|_| ResolutionError::InvalidDid)?;
@@ -52,7 +50,7 @@ fn resolve_inner(did: Did) -> Result<Document, ResolutionError> {
         verification_method:   Some(vec![VerificationMethodMap {
             id:                   did_url.clone(),
             typ:                  "JsonWebKey2020".into(),
-            controller:           did,
+            controller:           did.clone(),
             public_key_jwk:       Some(did_key.to_jwk()),
             public_key_multibase: None,
         }]),

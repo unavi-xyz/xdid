@@ -9,10 +9,17 @@ use xdid_core::{
 
 /// Resolves DIDs using a set of provided methods.
 pub struct DidResolver {
-    pub methods: SmallVec<[Box<dyn Method>; 2]>,
+    methods: SmallVec<[Box<dyn Method>; 2]>,
 }
 
 impl DidResolver {
+    /// Creates a resolver over `methods`, tried in the order given.
+    pub fn with_methods(methods: impl IntoIterator<Item = Box<dyn Method>>) -> Self {
+        Self {
+            methods: methods.into_iter().collect(),
+        }
+    }
+
     /// Creates a new resolver with all enabled methods.
     ///
     /// # Errors
@@ -51,7 +58,7 @@ impl DidResolver {
     pub async fn resolve(&self, did: &Did) -> Result<Document, ResolutionError> {
         for method in &self.methods {
             if method.method_name() == did.method_name.as_str() {
-                return method.resolve(did.clone()).await;
+                return method.resolve(did).await;
             }
         }
 
@@ -100,7 +107,6 @@ mod did_web_tests {
         service::service_fn,
     };
     use hyper_util::rt::TokioIo;
-    use smallvec::smallvec;
     use tokio::net::TcpListener;
     use xdid_method_web::{
         Config,
@@ -112,9 +118,7 @@ mod did_web_tests {
 
     fn resolver_with(config: Config) -> DidResolver {
         let method = MethodDidWeb::with_config(config).expect("resolver construction");
-        DidResolver {
-            methods: smallvec![Box::new(method) as Box<dyn Method>],
-        }
+        DidResolver::with_methods([Box::new(method) as Box<dyn Method>])
     }
 
     fn local_config() -> Config {

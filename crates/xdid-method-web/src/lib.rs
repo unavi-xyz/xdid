@@ -100,14 +100,7 @@ impl Method for MethodDidWeb {
         NAME
     }
 
-    fn resolve(&self, did: Did) -> MethodFuture<Result<Document, ResolutionError>> {
-        let document = resolve::document(self.client.clone(), self.config.clone(), did);
-
-        cfg_select! {
-            // Sound only because wasm is single-threaded, so the future is
-            // never polled from a thread other than the one that created it.
-            target_family = "wasm" => Box::pin(send_wrapper::SendWrapper::new(document)),
-            _ => Box::pin(document),
-        }
+    fn resolve<'a>(&'a self, did: &'a Did) -> MethodFuture<'a, Result<Document, ResolutionError>> {
+        Box::pin(resolve::document(&self.client, &self.config, did))
     }
 }

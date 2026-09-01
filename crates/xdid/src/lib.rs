@@ -32,18 +32,9 @@
 
 pub mod resolver;
 
-pub mod core {
-    pub use xdid_core::*;
-}
+pub use xdid_core as core;
 
 pub mod methods {
-    #[cfg(feature = "did-key")]
-    pub mod key {
-        pub use xdid_method_key::*;
-    }
-
-    #[cfg(feature = "did-web")]
-    pub mod web {
-        pub use xdid_method_web::*;
-    }
+    #[cfg(feature = "did-key")] pub use xdid_method_key as key;
+    #[cfg(feature = "did-web")] pub use xdid_method_web as web;
 }
