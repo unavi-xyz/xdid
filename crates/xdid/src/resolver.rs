@@ -91,6 +91,11 @@ mod did_web_tests {
 
     use hyper::{
         Response,
+        StatusCode,
+        header::{
+            HeaderValue,
+            LOCATION,
+        },
         server::conn::http1::Builder,
         service::service_fn,
     };
@@ -134,17 +139,55 @@ mod did_web_tests {
         }
     }
 
-    async fn serve(make_body: impl FnOnce(&Did) -> String) -> Did {
+    struct Reply {
+        status:   StatusCode,
+        location: Option<&'static str>,
+        body:     String,
+    }
+
+    impl Reply {
+        const fn ok(body: String) -> Self {
+            Self {
+                status: StatusCode::OK,
+                location: None,
+                body,
+            }
+        }
+
+        const fn redirect(to: &'static str) -> Self {
+            Self {
+                status:   StatusCode::FOUND,
+                location: Some(to),
+                body:     String::new(),
+            }
+        }
+    }
+
+    fn document_body(did: &Did) -> String {
+        serde_json::to_string(&document_for(did)).expect("serialization should succeed")
+    }
+
+    async fn serve(make: impl FnOnce(&Did) -> Reply) -> Did {
         let port = port_check::free_local_port().expect("free port should be available");
         let addr = SocketAddr::from(([127, 0, 0, 1], port));
         let listener = TcpListener::bind(addr).await.expect("listener should bind");
 
         let did = Did::from_str(&format!("did:web:localhost%3A{port}")).expect("valid DID");
-        let data = Arc::new(make_body(&did));
+        let reply = Arc::new(make(&did));
 
         let handler = move |_| {
-            let data = data.clone();
-            async move { Ok::<_, hyper::Error>(Response::new(data.to_string())) }
+            let reply = reply.clone();
+            async move {
+                let mut res = Response::new(reply.body.clone());
+                *res.status_mut() = reply.status;
+
+                if let Some(to) = reply.location {
+                    res.headers_mut()
+                        .insert(LOCATION, HeaderValue::from_static(to));
+                }
+
+                Ok::<_, hyper::Error>(res)
+            }
         };
 
         tokio::spawn(async move {
@@ -169,10 +212,7 @@ mod did_web_tests {
 
     #[tokio::test]
     async fn test_resolve_did_web() {
-        let did = serve(|did| {
-            serde_json::to_string(&document_for(did)).expect("serialization should succeed")
-        })
-        .await;
+        let did = serve(|did| Reply::ok(document_body(did))).await;
 
         let document = resolver_with(local_config())
             .resolve(&did)
@@ -186,7 +226,7 @@ mod did_web_tests {
     async fn test_rejects_document_id_mismatch() {
         let did = serve(|_| {
             let other = Did::from_str("did:web:victim.example").expect("valid DID");
-            serde_json::to_string(&document_for(&other)).expect("serialization should succeed")
+            Reply::ok(document_body(&other))
         })
         .await;
 
@@ -203,7 +243,7 @@ mod did_web_tests {
         let did = serve(|did| {
             let mut doc = document_for(did);
             doc.also_known_as = Some(vec!["x".repeat(64 * 1024)]);
-            serde_json::to_string(&doc).expect("serialization should succeed")
+            Reply::ok(serde_json::to_string(&doc).expect("serialization should succeed"))
         })
         .await;
 
@@ -216,6 +256,36 @@ mod did_web_tests {
         .expect_err("an oversized document must be rejected");
 
         assert!(matches!(err, ResolutionError::DocumentTooLarge), "{err:?}");
+    }
+
+    #[tokio::test]
+    async fn test_rejects_redirect() {
+        let did = serve(|_| Reply::redirect("https://evil.example/.well-known/did.json")).await;
+
+        let err = resolver_with(local_config())
+            .resolve(&did)
+            .await
+            .expect_err("a redirect must not be followed");
+
+        let ResolutionError::ResolutionFailed(detail) = err else {
+            panic!("a refused redirect must not be reported as a malformed document: {err:?}");
+        };
+
+        assert!(detail.contains("302"), "{detail}");
+    }
+
+    /// The document is served, and served correctly. Refusing it is a property
+    /// of the target, not of the response.
+    #[tokio::test]
+    async fn test_rejects_plaintext_localhost_by_default() {
+        let did = serve(|did| Reply::ok(document_body(did))).await;
+
+        let err = resolver_with(Config::default())
+            .resolve(&did)
+            .await
+            .expect_err("a loopback target must be rejected");
+
+        assert!(matches!(err, ResolutionError::TargetNotAllowed), "{err:?}");
     }
 
     #[tokio::test]

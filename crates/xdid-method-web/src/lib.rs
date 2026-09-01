@@ -36,8 +36,11 @@ pub struct Config {
     pub connect_timeout:    Duration,
     pub request_timeout:    Duration,
     /// Permits loopback, private and link-local targets, and plaintext HTTP for
-    /// `localhost`. Needed to resolve against a local server; an SSRF vector
-    /// whenever the DID being resolved is attacker-controlled.
+    /// `localhost`. Needed to resolve against a local server. Whenever the DID
+    /// being resolved is attacker-controlled, this is an SSRF vector.
+    ///
+    /// Leaving it off also disables the system proxy, since a proxy resolves
+    /// the target host itself and would bypass the address checks.
     pub allow_local:        bool,
 }
 
@@ -119,6 +122,10 @@ fn build_client(config: &Config) -> Result<Client, ClientError> {
         .timeout(config.request_timeout);
 
     if !config.allow_local {
+        // A proxy resolves the target host itself and connects on our behalf,
+        // so `RestrictedResolver` would only ever see the proxy's own address.
+        builder = builder.no_proxy();
+
         // Routes DNS resolution through the same policy check the connector
         // then uses, so there is one lookup instead of a check-then-reconnect
         // pair a hostile resolver could answer differently.
@@ -191,9 +198,16 @@ async fn resolve_inner(
         )
         .send()
         .await
-        .map_err(fetch_failed)?
-        .error_for_status()
         .map_err(fetch_failed)?;
+
+    // A refused redirect arrives as a 3xx carrying no document, which would
+    // otherwise be reported as malformed JSON.
+    if !res.status().is_success() {
+        return Err(ResolutionError::ResolutionFailed(format!(
+            "unexpected status {}",
+            res.status()
+        )));
+    }
 
     let body = read_capped(res, config.max_document_bytes).await?;
 
