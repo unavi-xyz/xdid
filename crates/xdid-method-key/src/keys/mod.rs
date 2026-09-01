@@ -1,7 +1,5 @@
-use std::str::FromStr;
-
 use jose_jwk::Jwk;
-use multibase::Base;
+use thiserror::Error;
 use xdid_core::did::{
     Did,
     MethodId,
@@ -9,18 +7,43 @@ use xdid_core::did::{
 };
 use zeroize::Zeroizing;
 
-use crate::NAME;
-
 #[cfg(feature = "p256")] pub mod p256;
 #[cfg(feature = "p384")] pub mod p384;
 
+/// Keeps the signing backend out of the public API, where its version would
+/// otherwise be part of this crate's semver contract.
+#[derive(Debug, Error)]
+#[error("failed to sign: {0}")]
+pub struct SignError(String);
+
+impl SignError {
+    #[must_use]
+    pub fn new(detail: impl std::fmt::Display) -> Self {
+        Self(detail.to_string())
+    }
+}
+
+/// Keeps `pkcs8` out of the public API; see [`SignError`].
+#[derive(Debug, Error)]
+#[non_exhaustive]
+pub enum PemError {
+    #[error("failed to encode the key: {0}")]
+    Encode(String),
+    #[error("failed to decode the key: {0}")]
+    Decode(String),
+}
+
 pub trait Signer {
+    /// What a failed signature reports. An implementor outside this crate uses
+    /// its own error rather than adopting one of ours.
+    type Error: std::error::Error + Send + Sync + 'static;
+
     /// Sign a message with the private key.
     ///
     /// # Errors
     ///
     /// Returns an error if signing fails.
-    fn sign(&self, message: &[u8]) -> anyhow::Result<Vec<u8>>;
+    fn sign(&self, message: &[u8]) -> Result<Vec<u8>, Self::Error>;
 }
 
 pub trait DidKeyPair: Signer + Sized {
@@ -34,7 +57,7 @@ pub trait DidKeyPair: Signer + Sized {
     /// # Errors
     ///
     /// Returns an error if encoding fails.
-    fn to_pkcs8_pem(&self) -> anyhow::Result<Zeroizing<String>>;
+    fn to_pkcs8_pem(&self) -> Result<Zeroizing<String>, PemError>;
 
     /// Import a key pair from a PKCS#8 PEM string.
     ///
@@ -44,7 +67,7 @@ pub trait DidKeyPair: Signer + Sized {
     /// # Errors
     ///
     /// Returns an error if the PEM is invalid or cannot be decoded.
-    fn from_pkcs8_pem(pem: &str) -> anyhow::Result<Self>;
+    fn from_pkcs8_pem(pem: &str) -> Result<Self, PemError>;
 }
 
 pub trait PublicKey: WithMulticodec {
@@ -62,9 +85,8 @@ pub trait PublicKey: WithMulticodec {
         inner.extend_from_slice(&bytes);
 
         Did {
-            method_name: MethodName::from_str(NAME).expect("method name is a valid constant"),
-            method_id:   MethodId::from_str(&multibase::encode(Base::Base58Btc, inner))
-                .expect("base58btc alphabet is a subset of idchar"),
+            method_name: MethodName::KEY,
+            method_id:   MethodId::from_base58btc(&inner),
         }
     }
 }

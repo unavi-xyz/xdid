@@ -87,9 +87,7 @@ pub fn refusal(e: &reqwest::Error) -> Option<ResolutionError> {
         }
 
         if err.downcast_ref::<TargetLookupTimedOut>().is_some() {
-            return Some(ResolutionError::ResolutionFailed(
-                "target lookup timed out".into(),
-            ));
+            return Some(ResolutionError::Transport("target lookup timed out".into()));
         }
 
         cause = err.source();

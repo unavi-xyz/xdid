@@ -268,7 +268,7 @@ mod did_web_tests {
             .await
             .expect_err("a redirect must not be followed");
 
-        let ResolutionError::ResolutionFailed(detail) = err else {
+        let ResolutionError::Transport(detail) = err else {
             panic!("a refused redirect must not be reported as a malformed document: {err:?}");
         };
 

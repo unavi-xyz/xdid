@@ -25,7 +25,9 @@ use super::{
     DidKeyPair,
     KeyParser,
     Multicodec,
+    PemError,
     PublicKey,
+    SignError,
     Signer,
     WithMulticodec,
 };
@@ -47,19 +49,25 @@ impl DidKeyPair for P256KeyPair {
         P256PublicKey(self.0.public_key())
     }
 
-    fn to_pkcs8_pem(&self) -> anyhow::Result<Zeroizing<String>> {
-        Ok(self.0.to_pkcs8_pem(LineEnding::LF)?)
+    fn to_pkcs8_pem(&self) -> Result<Zeroizing<String>, PemError> {
+        self.0
+            .to_pkcs8_pem(LineEnding::LF)
+            .map_err(|e| PemError::Encode(e.to_string()))
     }
 
-    fn from_pkcs8_pem(pem: &str) -> anyhow::Result<Self> {
-        Ok(Self(SecretKey::from_pkcs8_pem(pem)?))
+    fn from_pkcs8_pem(pem: &str) -> Result<Self, PemError> {
+        SecretKey::from_pkcs8_pem(pem)
+            .map(Self)
+            .map_err(|e| PemError::Decode(e.to_string()))
     }
 }
 
 impl Signer for P256KeyPair {
-    fn sign(&self, message: &[u8]) -> anyhow::Result<Vec<u8>> {
+    type Error = SignError;
+
+    fn sign(&self, message: &[u8]) -> Result<Vec<u8>, SignError> {
         let signing_key = SigningKey::from(&self.0);
-        let sig: Signature = signing_key.try_sign(message)?;
+        let sig: Signature = signing_key.try_sign(message).map_err(SignError::new)?;
         Ok(sig.to_der().as_bytes().to_vec())
     }
 }

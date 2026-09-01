@@ -3,13 +3,13 @@ use std::{
     str::FromStr,
 };
 
-use anyhow::bail;
 use serde::{
     Deserialize,
     Serialize,
 };
 use smol_str::SmolStr;
 
+use super::ParseError;
 use crate::uri::{
     Segment,
     is_query_or_fragment,
@@ -37,11 +37,11 @@ impl RelativeDidUrl {
         path: RelativeDidUrlPath,
         query: Option<SmolStr>,
         fragment: Option<SmolStr>,
-    ) -> anyhow::Result<Self> {
+    ) -> Result<Self, ParseError> {
         // The variants are public, so the contents may disagree with the
         // variant.
         if RelativeDidUrlPath::from_str(path.as_str())? != path {
-            bail!("path does not match its variant")
+            return Err(ParseError::PathVariantMismatch);
         }
 
         if [query.as_deref(), fragment.as_deref()]
@@ -49,7 +49,7 @@ impl RelativeDidUrl {
             .flatten()
             .any(|v| !is_query_or_fragment(v))
         {
-            bail!("invalid query or fragment")
+            return Err(ParseError::Query);
         }
 
         Ok(Self {
@@ -104,7 +104,7 @@ impl Display for RelativeDidUrl {
 }
 
 impl FromStr for RelativeDidUrl {
-    type Err = anyhow::Error;
+    type Err = ParseError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         // Fragment first: a fragment may itself contain "?".
@@ -123,7 +123,7 @@ impl FromStr for RelativeDidUrl {
             .flatten()
             .any(|v| !is_query_or_fragment(v))
         {
-            bail!("invalid query or fragment")
+            return Err(ParseError::Query);
         }
 
         Ok(Self {
@@ -182,7 +182,7 @@ impl Display for RelativeDidUrlPath {
 }
 
 impl FromStr for RelativeDidUrlPath {
-    type Err = anyhow::Error;
+    type Err = ParseError;
 
     fn from_str(path: &str) -> Result<Self, Self::Err> {
         if path.is_empty() {
@@ -191,7 +191,7 @@ impl FromStr for RelativeDidUrlPath {
         if path.starts_with('/') {
             // path-absolute = "/" [ segment-nz *( "/" segment ) ]
             if path.starts_with("//") {
-                bail!("double slash at start")
+                return Err(ParseError::PathDoubleSlash);
             }
 
             if !path
@@ -199,14 +199,14 @@ impl FromStr for RelativeDidUrlPath {
                 .skip(1)
                 .all(|v| is_segment(v, Segment::Base))
             {
-                bail!("invalid segment")
+                return Err(ParseError::PathSegment);
             }
 
             Ok(Self::Absolute(path.to_string()))
         } else {
             // path-noscheme = segment-nz-nc *( "/" segment )
             if !path.split('/').all(|v| is_segment(v, Segment::NzNc)) {
-                bail!("invalid segment")
+                return Err(ParseError::PathSegment);
             }
 
             Ok(Self::NoScheme(path.to_string()))

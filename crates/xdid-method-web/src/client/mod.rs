@@ -39,5 +39,5 @@ pub fn fetch_failed(e: reqwest::Error) -> ResolutionError {
         _ => native::refusal(&e),
     };
 
-    refusal.unwrap_or_else(|| ResolutionError::ResolutionFailed(e.without_url().to_string()))
+    refusal.unwrap_or_else(|| ResolutionError::Transport(e.without_url().to_string()))
 }

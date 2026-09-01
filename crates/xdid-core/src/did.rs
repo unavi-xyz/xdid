@@ -6,14 +6,35 @@ use std::{
     str::FromStr,
 };
 
-use anyhow::bail;
+use multibase::Base;
 use serde::{
     Deserialize,
     Serialize,
 };
 use smol_str::SmolStr;
+use thiserror::Error;
 
 use crate::uri::is_idchars;
+
+/// Why a string is not a [`Did`], a [`MethodName`] or a [`MethodId`].
+#[derive(Debug, Error)]
+#[non_exhaustive]
+pub enum ParseError {
+    #[error("does not start with `did:`")]
+    MissingScheme,
+    #[error("missing method name")]
+    MissingMethodName,
+    #[error("missing method-specific id")]
+    MissingMethodId,
+    #[error("method name is empty")]
+    EmptyMethodName,
+    #[error("method name must contain only lowercase letters and digits")]
+    MethodNameCharset,
+    #[error("method id must end with at least one idchar")]
+    MethodIdTrailingColon,
+    #[error("method id contains invalid characters")]
+    MethodIdCharset,
+}
 
 /// A [decentralized identifier](https://www.w3.org/TR/did-core/#did-syntax).
 #[derive(Clone, PartialEq, Eq, Hash)]
@@ -40,26 +61,21 @@ impl Debug for Did {
 }
 
 impl FromStr for Did {
-    type Err = anyhow::Error;
+    type Err = ParseError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let mut parts = s.splitn(3, ':');
 
         if parts.next() != Some("did") {
-            bail!("does not start with did")
+            return Err(ParseError::MissingScheme);
         }
 
-        let method_name = parts.next().ok_or_else(|| anyhow::anyhow!("no method"))?;
-        let method_specific_id = parts
-            .next()
-            .ok_or_else(|| anyhow::anyhow!("no method id"))?;
-
-        let method_name = MethodName::from_str(method_name)?;
-        let method_id = MethodId::from_str(method_specific_id)?;
+        let method_name = parts.next().ok_or(ParseError::MissingMethodName)?;
+        let method_specific_id = parts.next().ok_or(ParseError::MissingMethodId)?;
 
         Ok(Self {
-            method_name,
-            method_id,
+            method_name: MethodName::from_str(method_name)?,
+            method_id:   MethodId::from_str(method_specific_id)?,
         })
     }
 }
@@ -90,6 +106,11 @@ impl<'de> Deserialize<'de> for Did {
 pub struct MethodName(SmolStr);
 
 impl MethodName {
+    /// The `key` method.
+    pub const KEY: Self = Self(SmolStr::new_static("key"));
+    /// The `web` method.
+    pub const WEB: Self = Self(SmolStr::new_static("web"));
+
     #[must_use]
     pub fn as_str(&self) -> &str {
         &self.0
@@ -114,19 +135,19 @@ impl<'de> Deserialize<'de> for MethodName {
 }
 
 impl FromStr for MethodName {
-    type Err = anyhow::Error;
+    type Err = ParseError;
 
     /// method-name = 1*method-char
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if s.is_empty() {
-            bail!("method name is empty")
+            return Err(ParseError::EmptyMethodName);
         }
 
         if !s
             .bytes()
             .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit())
         {
-            bail!("method name must contain only lowercase letters and digits")
+            return Err(ParseError::MethodNameCharset);
         }
 
         Ok(Self(s.into()))
@@ -138,6 +159,16 @@ impl FromStr for MethodName {
 pub struct MethodId(String);
 
 impl MethodId {
+    /// Encodes bytes as multibase base58btc.
+    ///
+    /// Infallible because this performs the encoding itself: the base58btc
+    /// alphabet and its `z` prefix are all `idchar`, so the result satisfies
+    /// `method-specific-id` whatever the input bytes are.
+    #[must_use]
+    pub fn from_base58btc(bytes: &[u8]) -> Self {
+        Self(multibase::encode(Base::Base58Btc, bytes))
+    }
+
     #[must_use]
     pub fn as_str(&self) -> &str {
         &self.0
@@ -161,7 +192,7 @@ impl<'de> Deserialize<'de> for MethodId {
 }
 
 impl FromStr for MethodId {
-    type Err = anyhow::Error;
+    type Err = ParseError;
 
     /// method-specific-id = *( *idchar ":" ) 1*idchar
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -169,11 +200,11 @@ impl FromStr for MethodId {
         // may be empty. An empty id collapses the authority of a
         // `did:web` URL.
         if s.is_empty() || s.ends_with(':') {
-            bail!("method id must end with at least one idchar")
+            return Err(ParseError::MethodIdTrailingColon);
         }
 
         if !s.split(':').all(is_idchars) {
-            bail!("method id contains invalid characters")
+            return Err(ParseError::MethodIdCharset);
         }
 
         Ok(Self(s.to_string()))

@@ -3,16 +3,18 @@ use std::{
     str::FromStr,
 };
 
-use anyhow::bail;
 use serde::{
     Deserialize,
     Serialize,
 };
 use smol_str::SmolStr;
 
-use super::relative::{
-    RelativeDidUrl,
-    RelativeDidUrlPath,
+use super::{
+    ParseError,
+    relative::{
+        RelativeDidUrl,
+        RelativeDidUrlPath,
+    },
 };
 use crate::{
     did::Did,
@@ -72,7 +74,7 @@ impl DidUrl {
         path_abempty: Option<String>,
         query: Option<SmolStr>,
         fragment: Option<SmolStr>,
-    ) -> anyhow::Result<Self> {
+    ) -> Result<Self, ParseError> {
         if let Some(path) = path_abempty.as_deref() {
             validate_path_abempty(path)?;
         }
@@ -82,7 +84,7 @@ impl DidUrl {
             .flatten()
             .any(|v| !is_query_or_fragment(v))
         {
-            bail!("invalid query or fragment")
+            return Err(ParseError::Query);
         }
 
         Ok(Self {
@@ -138,10 +140,10 @@ impl DidUrl {
     }
 }
 
-fn validate_path_abempty(path: &str) -> anyhow::Result<()> {
+fn validate_path_abempty(path: &str) -> Result<(), ParseError> {
     // path-abempty = *( "/" segment )
     if !path.starts_with('/') {
-        bail!("path_abempty does not start with slash")
+        return Err(ParseError::PathNotAbsolute);
     }
 
     if !path
@@ -149,7 +151,7 @@ fn validate_path_abempty(path: &str) -> anyhow::Result<()> {
         .skip(1)
         .all(|v| is_segment(v, Segment::Base))
     {
-        bail!("invalid path_abempty segment")
+        return Err(ParseError::PathSegment);
     }
 
     Ok(())
@@ -178,7 +180,7 @@ impl Display for DidUrl {
 }
 
 impl FromStr for DidUrl {
-    type Err = anyhow::Error;
+    type Err = ParseError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let (did_str, mut rest) = s.split_at(s.find(['/', '?', '#']).unwrap_or(s.len()));
@@ -192,7 +194,7 @@ impl FromStr for DidUrl {
         // Fragment first: a fragment may itself contain "?".
         if let Some((before_fragment, frag)) = rest.split_once('#') {
             if !is_query_or_fragment(frag) {
-                bail!("invalid fragment")
+                return Err(ParseError::Fragment);
             }
 
             fragment = Some(frag.into());
@@ -201,7 +203,7 @@ impl FromStr for DidUrl {
 
         if let Some((before_query, qry)) = rest.split_once('?') {
             if !is_query_or_fragment(qry) {
-                bail!("invalid query")
+                return Err(ParseError::Query);
             }
 
             query = Some(qry.into());
@@ -215,11 +217,11 @@ impl FromStr for DidUrl {
             None
         } else {
             if !path.starts_with('/') {
-                bail!("path_abempty does not start with slash")
+                return Err(ParseError::PathNotAbsolute);
             }
 
             if !path.split('/').all(|v| is_segment(v, Segment::Base)) {
-                bail!("invalid path_abempty segment")
+                return Err(ParseError::PathSegment);
             }
 
             Some(path)

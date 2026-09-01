@@ -22,6 +22,7 @@ pub trait Method: Send + Sync {
 }
 
 #[derive(Error, Debug)]
+#[non_exhaustive]
 pub enum ResolutionError {
     #[error("invalid DID")]
     InvalidDid,
@@ -34,10 +35,20 @@ pub enum ResolutionError {
     TargetNotAllowed,
     #[error("document exceeds the configured size limit")]
     DocumentTooLarge,
+    /// The host answered, and publishes no document for this DID. A caller
+    /// should not retry, and should not treat the DID as merely unreachable.
+    #[error("no document is published for this DID")]
+    NotFound,
+    /// The host could not be reached, or answered in a way that says nothing
+    /// about the DID. Worth retrying.
+    ///
     /// Detail never includes the resolved URL, which would make resolution
     /// errors an oracle for probing internal hosts.
-    #[error("resolution failed: {0}")]
-    ResolutionFailed(String),
+    #[error("could not reach the DID's host: {0}")]
+    Transport(String),
+    /// The host answered with something that is not a DID document.
+    #[error("response is not a DID document: {0}")]
+    Malformed(String),
     #[error("unsupported method")]
     UnsupportedMethod,
 }

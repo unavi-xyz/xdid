@@ -13,7 +13,7 @@
 //! };
 //!
 //! #[tokio::main]
-//! async fn main() {
+//! async fn main() -> Result<(), Box<dyn std::error::Error>> {
 //!     // Generate a new did:key.
 //!     let keys = P256KeyPair::generate();
 //!     let did = keys.public().to_did();
@@ -21,10 +21,12 @@
 //!     assert!(did.to_string().starts_with("did:key:zDn"));
 //!
 //!     // Resolve the DID document.
-//!     let resolver = DidResolver::new().unwrap();
-//!     let document = resolver.resolve(&did).await.unwrap();
+//!     let resolver = DidResolver::new()?;
+//!     let document = resolver.resolve(&did).await?;
 //!
 //!     assert_eq!(document.id, did);
+//!
+//!     Ok(())
 //! }
 //! ```
 
