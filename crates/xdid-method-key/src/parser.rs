@@ -40,8 +40,9 @@ impl DidKeyParser {
     pub fn parse(&self, did: &Did) -> Result<Box<dyn PublicKey>, ParseError> {
         let (base, inner) = multibase::decode(did.method_id.as_str())?;
 
-        // did:key fixes the encoding at base58btc. Accepting any other multibase
-        // would give every key an unlimited supply of distinct DID strings.
+        // did:key fixes the encoding at base58btc. Accepting any other
+        // multibase would give every key an unlimited supply of
+        // distinct DID strings.
         if base != Base::Base58Btc {
             return Err(ParseError::NotBase58Btc);
         }

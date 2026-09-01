@@ -38,7 +38,8 @@ impl RelativeDidUrl {
         query: Option<SmolStr>,
         fragment: Option<SmolStr>,
     ) -> anyhow::Result<Self> {
-        // The variants are public, so the contents may disagree with the variant.
+        // The variants are public, so the contents may disagree with the
+        // variant.
         if RelativeDidUrlPath::from_str(path.as_str())? != path {
             bail!("path does not match its variant")
         }

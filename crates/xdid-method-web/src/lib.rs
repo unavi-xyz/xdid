@@ -143,8 +143,8 @@ impl Method for MethodDidWeb {
 
     #[cfg(target_family = "wasm")]
     fn resolve(&self, did: Did) -> MethodFuture<Result<Document, ResolutionError>> {
-        // Sound only because wasm is single-threaded; the future is never polled
-        // from a thread other than the one that created it.
+        // Sound only because wasm is single-threaded; the future is never
+        // polled from a thread other than the one that created it.
         Box::pin(send_wrapper::SendWrapper::new(resolve_inner(
             self.client.clone(),
             self.config.clone(),
@@ -218,8 +218,8 @@ async fn check_target(url: &Url, timeout: Duration) -> Result<(), ResolutionErro
     let addrs = if let Ok(ip) = bare.parse::<IpAddr>() {
         vec![ip]
     } else {
-        // The client's own timeouts start at connect, leaving this lookup as the
-        // one unbounded phase of a resolve.
+        // The client's own timeouts start at connect, leaving this lookup as
+        // the one unbounded phase of a resolve.
         tokio::time::timeout(timeout, tokio::net::lookup_host((host, port)))
             .await
             .map_err(|_| ResolutionError::ResolutionFailed("target lookup timed out".into()))?

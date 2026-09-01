@@ -165,8 +165,9 @@ impl FromStr for MethodId {
 
     /// method-specific-id = *( *idchar ":" ) 1*idchar
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        // The final colon-separated segment must be non-empty; interior ones may
-        // be empty. An empty id collapses the authority of a `did:web` URL.
+        // The final colon-separated segment must be non-empty; interior ones
+        // may be empty. An empty id collapses the authority of a
+        // `did:web` URL.
         if s.is_empty() || s.ends_with(':') {
             bail!("method id must end with at least one idchar")
         }

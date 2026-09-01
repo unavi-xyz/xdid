@@ -120,7 +120,8 @@ mod tests {
 
     #[test]
     fn test_rejects_non_ascii() {
-        // ALPHA and DIGIT are ASCII-only; homographs must not pass as unreserved.
+        // ALPHA and DIGIT are ASCII-only; homographs must not pass as
+        // unreserved.
         assert!(!is_segment("p\u{430}th", Segment::Base));
         assert!(!is_segment("日本", Segment::Base));
         assert!(!is_segment("\u{2177}", Segment::Base));
