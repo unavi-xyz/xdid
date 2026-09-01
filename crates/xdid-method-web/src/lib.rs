@@ -84,21 +84,18 @@ impl MethodDidWeb {
     }
 }
 
-/// The TLS backend, chosen downstream so this crate stays crypto-agnostic.
-/// `tls-aws-lc-rs` is the default (mirroring rustls's default provider) and
-/// wins when both features are enabled; `tls-ring` is used only when
-/// `tls-aws-lc-rs` is off.
+/// `tls-ring` wins when both TLS features are enabled.
 #[cfg(not(target_family = "wasm"))]
-#[cfg(feature = "tls-aws-lc-rs")]
+#[cfg(feature = "tls-ring")]
 fn tls_provider() -> std::sync::Arc<rustls::crypto::CryptoProvider> {
-    std::sync::Arc::new(rustls::crypto::aws_lc_rs::default_provider())
+    std::sync::Arc::new(rustls::crypto::ring::default_provider())
 }
 
 #[cfg(not(target_family = "wasm"))]
-#[cfg(feature = "tls-ring")]
-#[cfg(not(feature = "tls-aws-lc-rs"))]
+#[cfg(feature = "tls-aws-lc-rs")]
+#[cfg(not(feature = "tls-ring"))]
 fn tls_provider() -> std::sync::Arc<rustls::crypto::CryptoProvider> {
-    std::sync::Arc::new(rustls::crypto::ring::default_provider())
+    std::sync::Arc::new(rustls::crypto::aws_lc_rs::default_provider())
 }
 
 #[cfg(not(target_family = "wasm"))]

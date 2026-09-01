@@ -10,11 +10,12 @@ version.workspace    = true
 workspace = true
 
 [features]
-default       = ["did-key", "did-web", "tls-aws-lc-rs"]
-did-key       = ["dep:xdid-method-key"]
-did-web       = ["dep:xdid-method-web"]
-tls-aws-lc-rs = ["xdid-method-web/tls-aws-lc-rs"]
-tls-ring      = ["xdid-method-web/tls-ring"]
+default         = ["default-methods", "tls-ring"]
+default-methods = ["did-key", "did-web"]
+did-key         = ["dep:xdid-method-key"]
+did-web         = ["dep:xdid-method-web"]
+tls-aws-lc-rs   = ["xdid-method-web/tls-aws-lc-rs"]
+tls-ring        = ["xdid-method-web/tls-ring"]
 
 [dependencies]
 smallvec            = "1.15.1"
