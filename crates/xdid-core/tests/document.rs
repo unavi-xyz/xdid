@@ -57,10 +57,6 @@ fn test_document_serde() {
     };
 
     let doc_val = serde_json::to_value(&doc).expect("serialization should succeed");
-    println!(
-        "{}",
-        serde_json::to_string_pretty(&doc).expect("serialization should succeed")
-    );
 
     let expected_val: Value =
         serde_json::from_slice(EXPECTED_RAW).expect("deserialization should succeed");
