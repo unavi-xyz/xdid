@@ -177,8 +177,7 @@ async fn resolve_inner(
         return Err(ResolutionError::InvalidDid);
     }
 
-    let mut url = parse::parse_url(&did).map_err(|_| ResolutionError::InvalidDid)?;
-    config.target.downgrade_local_scheme(&mut url);
+    let url = parse::parse_url(&did, config.target).map_err(|_| ResolutionError::InvalidDid)?;
 
     config
         .target

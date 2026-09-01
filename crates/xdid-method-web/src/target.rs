@@ -67,16 +67,18 @@ impl TargetPolicy {
         Ok(())
     }
 
-    /// Rewrites a `localhost` URL to plaintext HTTP, for a development server
-    /// that has no certificate. Any other host keeps its scheme.
+    /// The scheme a `did:web` domain is fetched over. Plaintext HTTP is for a
+    /// `localhost` development server, which rarely has a certificate.
     ///
-    /// # Panics
-    ///
-    /// Panics if `url` has no host. A `did:web` URL always has one.
-    pub fn downgrade_local_scheme(self, url: &mut Url) {
-        if self == Self::AllowLocal && url.host_str() == Some("localhost") {
-            url.set_scheme("http")
-                .expect("http and https are interchangeable on a URL with a host");
+    /// `domain` is the DID's domain component, which may carry a port.
+    #[must_use]
+    pub fn scheme_for(self, domain: &str) -> &'static str {
+        let host = domain.split_once(':').map_or(domain, |(host, _)| host);
+
+        if self == Self::AllowLocal && host == "localhost" {
+            "http"
+        } else {
+            "https"
         }
     }
 }
@@ -327,34 +329,19 @@ mod tests {
     }
 
     #[test]
-    fn only_localhost_is_downgraded_and_only_when_local_is_allowed() {
+    fn only_localhost_is_plaintext_and_only_when_local_is_allowed() {
         let cases = [
-            (
-                TargetPolicy::AllowLocal,
-                "https://localhost:3000/did.json",
-                "http://localhost:3000/did.json",
-            ),
-            (
-                TargetPolicy::PublicOnly,
-                "https://localhost:3000/did.json",
-                "https://localhost:3000/did.json",
-            ),
-            (
-                TargetPolicy::AllowLocal,
-                "https://example.com/did.json",
-                "https://example.com/did.json",
-            ),
-            (
-                TargetPolicy::AllowLocal,
-                "https://127.0.0.1/did.json",
-                "https://127.0.0.1/did.json",
-            ),
+            (TargetPolicy::AllowLocal, "localhost", "http"),
+            (TargetPolicy::AllowLocal, "localhost:3000", "http"),
+            (TargetPolicy::PublicOnly, "localhost", "https"),
+            (TargetPolicy::PublicOnly, "localhost:3000", "https"),
+            (TargetPolicy::AllowLocal, "example.com", "https"),
+            (TargetPolicy::AllowLocal, "127.0.0.1", "https"),
+            (TargetPolicy::AllowLocal, "localhost.evil.com", "https"),
         ];
 
-        for (policy, before, after) in cases {
-            let mut url = url(before);
-            policy.downgrade_local_scheme(&mut url);
-            assert_eq!(url.as_str(), after, "{policy:?} {before}");
+        for (policy, domain, scheme) in cases {
+            assert_eq!(policy.scheme_for(domain), scheme, "{policy:?} {domain}");
         }
     }
 }

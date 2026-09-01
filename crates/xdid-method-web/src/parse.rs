@@ -3,6 +3,8 @@ use reqwest::Url;
 use thiserror::Error;
 use xdid_core::did::Did;
 
+use crate::target::TargetPolicy;
+
 const WELL_KNOWN: &str = ".well-known";
 const DOCUMENT: &str = "did.json";
 
@@ -19,12 +21,7 @@ pub enum ParseError {
 }
 
 /// Builds the document URL for a `did:web`.
-///
-/// The scheme is always HTTPS. Loosening it for a local development server is
-/// [`TargetPolicy::downgrade_local_scheme`]'s job.
-///
-/// [`TargetPolicy::downgrade_local_scheme`]: crate::target::TargetPolicy::downgrade_local_scheme
-pub fn parse_url(did: &Did) -> Result<Url, ParseError> {
+pub fn parse_url(did: &Did, target: TargetPolicy) -> Result<Url, ParseError> {
     // web-did = "did:web:" domain-name *( ":" path )
     let mut parts = did.method_id.as_str().split(':');
 
@@ -33,8 +30,10 @@ pub fn parse_url(did: &Did) -> Result<Url, ParseError> {
         return Err(ParseError::EmptyDomain);
     }
 
+    let scheme = target.scheme_for(&domain);
+
     let mut url =
-        Url::parse(&format!("https://{domain}")).map_err(|_| ParseError::InvalidDomain)?;
+        Url::parse(&format!("{scheme}://{domain}")).map_err(|_| ParseError::InvalidDomain)?;
 
     // A decoded domain can smuggle userinfo or a path into the authority; the
     // parser reports those faithfully, so reject anything beyond a bare host.
@@ -95,7 +94,11 @@ mod tests {
     use super::*;
 
     fn url_of(did: &str) -> Result<String, ParseError> {
-        parse_url(&Did::from_str(did).expect("valid DID")).map(String::from)
+        parse_url(
+            &Did::from_str(did).expect("valid DID"),
+            TargetPolicy::PublicOnly,
+        )
+        .map(String::from)
     }
 
     #[test]

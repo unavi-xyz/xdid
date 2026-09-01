@@ -181,17 +181,13 @@ impl FromStr for DidUrl {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let did_str = s.find(['/', '?', '#']).map_or(s, |pos| &s[..pos]);
+        let (did_str, mut rest) = s.split_at(s.find(['/', '?', '#']).unwrap_or(s.len()));
 
         let did = Did::from_str(did_str)?;
 
         let mut path = String::new();
         let mut query = None;
         let mut fragment = None;
-
-        let mut rest = s
-            .strip_prefix(did_str)
-            .expect("DID string prefix already validated");
 
         // Fragment first: a fragment may itself contain "?".
         if let Some((before_fragment, frag)) = rest.split_once('#') {
