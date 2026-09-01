@@ -109,16 +109,25 @@ fn build_client(config: &Config) -> Result<Client, ClientError> {
         .map_err(|e| ClientError(e.to_string()))?
         .with_no_client_auth();
 
-    ClientBuilder::new()
+    let mut builder = ClientBuilder::new()
         .use_preconfigured_tls(tls)
         .user_agent(USER_AGENT)
         // A redirect would escape the target checks applied to the initial URL.
         .redirect(reqwest::redirect::Policy::none())
         .https_only(!config.allow_local)
         .connect_timeout(config.connect_timeout)
-        .timeout(config.request_timeout)
-        .build()
-        .map_err(|e| ClientError(e.to_string()))
+        .timeout(config.request_timeout);
+
+    if !config.allow_local {
+        // Routes DNS resolution through the same policy check the connector
+        // then uses, so there is one lookup instead of a check-then-reconnect
+        // pair a hostile resolver could answer differently.
+        builder = builder.dns_resolver(std::sync::Arc::new(RestrictedResolver {
+            timeout: config.connect_timeout,
+        }));
+    }
+
+    builder.build().map_err(|e| ClientError(e.to_string()))
 }
 
 // The wasm client is the browser's; it applies its own transport policy and
@@ -166,7 +175,12 @@ async fn resolve_inner(
         parse::parse_url(&did, config.allow_local).map_err(|_| ResolutionError::InvalidDid)?;
 
     if !config.allow_local {
-        check_target(&url, config.connect_timeout).await?;
+        // Only covers a literal-IP DID: the connector skips DNS resolution
+        // (and so `RestrictedResolver`) whenever the host is already an IP.
+        // A hostname target is checked by `RestrictedResolver` at connect
+        // time instead, since a check here would race a second, independent
+        // lookup done by the connector.
+        check_literal_target(&url)?;
     }
 
     let res = client
@@ -197,38 +211,43 @@ async fn resolve_inner(
 }
 
 /// Strips the URL from transport errors, which would otherwise let a caller use
-/// resolution failures to probe internal hosts.
+/// resolution failures to probe internal hosts. `RestrictedResolver` rejections
+/// are unwrapped back to their specific `ResolutionError` first.
 fn fetch_failed(e: reqwest::Error) -> ResolutionError {
+    #[cfg(not(target_family = "wasm"))]
+    {
+        let mut cause: Option<&(dyn std::error::Error + 'static)> = Some(&e);
+        while let Some(err) = cause {
+            if err.downcast_ref::<RestrictedTarget>().is_some() {
+                return ResolutionError::TargetNotAllowed;
+            }
+            if err.downcast_ref::<TargetLookupTimedOut>().is_some() {
+                return ResolutionError::ResolutionFailed("target lookup timed out".into());
+            }
+            cause = err.source();
+        }
+    }
+
     ResolutionError::ResolutionFailed(e.without_url().to_string())
 }
 
-/// Rejects targets outside public unicast space before any connection is made.
+/// Rejects a literal-IP target outside public unicast space before any
+/// connection is made.
 ///
-/// The addresses are re-resolved by the connector, so a hostile resolver can
-/// still return a public address here and a private one there. Closing that
-/// race needs a custom connector that checks the peer at connect time.
+/// A hostname target isn't checked here: the connector resolves it itself,
+/// so a check against a separate lookup would race a hostile resolver that
+/// answers the two lookups differently. `RestrictedResolver` closes that gap
+/// by making the validated lookup the one the connector then uses.
 #[cfg(not(target_family = "wasm"))]
-async fn check_target(url: &Url, timeout: Duration) -> Result<(), ResolutionError> {
+fn check_literal_target(url: &Url) -> Result<(), ResolutionError> {
     use std::net::IpAddr;
 
     let host = url.host_str().ok_or(ResolutionError::InvalidDid)?;
-    let port = url.port_or_known_default().unwrap_or(443);
-
     let bare = host.trim_start_matches('[').trim_end_matches(']');
-    let addrs = if let Ok(ip) = bare.parse::<IpAddr>() {
-        vec![ip]
-    } else {
-        // The client's own timeouts start at connect, leaving this lookup as
-        // the one unbounded phase of a resolve.
-        tokio::time::timeout(timeout, tokio::net::lookup_host((host, port)))
-            .await
-            .map_err(|_| ResolutionError::ResolutionFailed("target lookup timed out".into()))?
-            .map_err(|e| ResolutionError::ResolutionFailed(e.to_string()))?
-            .map(|addr| addr.ip())
-            .collect()
-    };
 
-    if addrs.is_empty() || addrs.iter().copied().any(policy::is_restricted) {
+    if let Ok(ip) = bare.parse::<IpAddr>()
+        && policy::is_restricted(ip)
+    {
         return Err(ResolutionError::TargetNotAllowed);
     }
 
@@ -236,9 +255,72 @@ async fn check_target(url: &Url, timeout: Duration) -> Result<(), ResolutionErro
 }
 
 #[cfg(target_family = "wasm")]
-async fn check_target(_url: &Url, _timeout: Duration) -> Result<(), ResolutionError> {
+fn check_literal_target(_url: &Url) -> Result<(), ResolutionError> {
     Ok(())
 }
+
+/// A [`reqwest::dns::Resolve`] that rejects hostnames resolving to a
+/// restricted address, so validation and connection share one lookup instead
+/// of racing two independent ones.
+#[cfg(not(target_family = "wasm"))]
+struct RestrictedResolver {
+    timeout: Duration,
+}
+
+#[cfg(not(target_family = "wasm"))]
+impl reqwest::dns::Resolve for RestrictedResolver {
+    fn resolve(&self, name: reqwest::dns::Name) -> reqwest::dns::Resolving {
+        let timeout = self.timeout;
+        let host = name.as_str().to_owned();
+
+        Box::pin(async move {
+            // The client's own timeouts start at connect, leaving this lookup
+            // as the one unbounded phase of a resolve.
+            let addrs: Vec<std::net::SocketAddr> =
+                tokio::time::timeout(timeout, tokio::net::lookup_host((host.as_str(), 0)))
+                    .await
+                    .map_err(|_| {
+                        Box::new(TargetLookupTimedOut) as Box<dyn std::error::Error + Send + Sync>
+                    })?
+                    .map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)?
+                    .collect();
+
+            if addrs.is_empty() || addrs.iter().any(|addr| policy::is_restricted(addr.ip())) {
+                return Err(Box::new(RestrictedTarget) as Box<dyn std::error::Error + Send + Sync>);
+            }
+
+            Ok(Box::new(addrs.into_iter()) as reqwest::dns::Addrs)
+        })
+    }
+}
+
+#[cfg(not(target_family = "wasm"))]
+#[derive(Debug)]
+struct RestrictedTarget;
+
+#[cfg(not(target_family = "wasm"))]
+impl std::fmt::Display for RestrictedTarget {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("target not allowed")
+    }
+}
+
+#[cfg(not(target_family = "wasm"))]
+impl std::error::Error for RestrictedTarget {}
+
+#[cfg(not(target_family = "wasm"))]
+#[derive(Debug)]
+struct TargetLookupTimedOut;
+
+#[cfg(not(target_family = "wasm"))]
+impl std::fmt::Display for TargetLookupTimedOut {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("target lookup timed out")
+    }
+}
+
+#[cfg(not(target_family = "wasm"))]
+impl std::error::Error for TargetLookupTimedOut {}
 
 #[cfg(not(target_family = "wasm"))]
 async fn read_capped(mut res: Response, max: u64) -> Result<Vec<u8>, ResolutionError> {
@@ -279,15 +361,29 @@ async fn read_capped(res: Response, max: u64) -> Result<Vec<u8>, ResolutionError
 mod tests {
     use super::*;
 
-    #[tokio::test]
-    async fn a_literal_target_is_checked_without_a_lookup() {
+    #[test]
+    fn a_literal_target_is_checked_without_a_lookup() {
         let public = Url::parse("https://93.184.216.34/.well-known/did.json").expect("valid url");
         let private = Url::parse("https://10.0.0.1/.well-known/did.json").expect("valid url");
 
-        assert!(check_target(&public, Duration::ZERO).await.is_ok());
+        assert!(check_literal_target(&public).is_ok());
         assert!(matches!(
-            check_target(&private, Duration::ZERO).await,
+            check_literal_target(&private),
             Err(ResolutionError::TargetNotAllowed)
         ));
+    }
+
+    #[tokio::test]
+    async fn a_hostname_resolving_to_a_restricted_address_is_rejected() {
+        let resolver = RestrictedResolver {
+            timeout: Duration::from_secs(5),
+        };
+        let name: reqwest::dns::Name = "localhost".parse().expect("valid name");
+
+        let Err(err) = reqwest::dns::Resolve::resolve(&resolver, name).await else {
+            panic!("localhost resolves to a loopback address");
+        };
+
+        assert!(err.downcast_ref::<RestrictedTarget>().is_some(), "{err}");
     }
 }
