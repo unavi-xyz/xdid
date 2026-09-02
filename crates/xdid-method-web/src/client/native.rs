@@ -30,16 +30,11 @@ use crate::{
     target::TargetPolicy,
 };
 
-/// `tls-ring` wins when both TLS features are enabled.
-#[cfg(feature = "tls-ring")]
 fn tls_provider() -> Arc<CryptoProvider> {
-    Arc::new(rustls::crypto::ring::default_provider())
-}
-
-#[cfg(feature = "tls-aws-lc-rs")]
-#[cfg(not(feature = "tls-ring"))]
-fn tls_provider() -> Arc<CryptoProvider> {
-    Arc::new(rustls::crypto::aws_lc_rs::default_provider())
+    cfg_select! {
+        feature = "tls-ring" => Arc::new(rustls::crypto::ring::default_provider()),
+        feature = "tls-aws-lc-rs" => Arc::new(rustls::crypto::aws_lc_rs::default_provider()),
+    }
 }
 
 pub fn build(config: &Config) -> Result<Client, ClientError> {
