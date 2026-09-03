@@ -1,3 +1,5 @@
+use std::fmt;
+
 use smallvec::SmallVec;
 use thiserror::Error;
 use xdid_core::{
@@ -10,6 +12,21 @@ use xdid_core::{
 /// Resolves DIDs using a set of provided methods.
 pub struct DidResolver {
     methods: SmallVec<[Box<dyn Method>; 2]>,
+}
+
+impl fmt::Debug for DidResolver {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("DidResolver")
+            .field(
+                "methods",
+                &self
+                    .methods
+                    .iter()
+                    .map(|m| m.method_name())
+                    .collect::<Vec<_>>(),
+            )
+            .finish()
+    }
 }
 
 impl DidResolver {
