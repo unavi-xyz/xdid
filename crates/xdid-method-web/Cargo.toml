@@ -34,4 +34,4 @@ tokio                    = { features = ["net", "time"], version = "1.53.1" }
 
 [target.'cfg(target_family = "wasm")'.dependencies]
 futures              = "0.3.31"
-wasm-bindgen-futures = "0.4.77"
+wasm-bindgen-futures = "0.4.76"
