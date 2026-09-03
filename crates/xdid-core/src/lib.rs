@@ -14,15 +14,9 @@ pub mod document;
 mod uri;
 
 /// Boxed future for [`Method::resolve`], borrowing for `'a` so a method need
-/// not clone itself or the DID to produce one.
-///
-/// A browser's HTTP future is not `Send`, and wasm is single-threaded, so the
-/// bound is dropped there rather than worked around.
-#[cfg(not(target_family = "wasm"))]
+/// not clone itself or the DID to produce one. `Send` is kept on wasm, where
+/// the web method bridges its browser transport over a channel.
 pub type MethodFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
-
-#[cfg(target_family = "wasm")]
-pub type MethodFuture<'a, T> = Pin<Box<dyn Future<Output = T> + 'a>>;
 
 pub trait Method: Send + Sync {
     fn method_name(&self) -> &'static str;

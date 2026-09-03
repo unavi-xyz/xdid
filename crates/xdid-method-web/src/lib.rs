@@ -101,6 +101,13 @@ impl Method for MethodDidWeb {
     }
 
     fn resolve<'a>(&'a self, did: &'a Did) -> MethodFuture<'a, Result<Document, ResolutionError>> {
-        Box::pin(resolve::document(&self.client, &self.config, did))
+        cfg_select! {
+            target_family = "wasm" => Box::pin(resolve::bridged(
+                self.client.clone(),
+                self.config.clone(),
+                did.clone(),
+            )),
+            _ => Box::pin(resolve::document(&self.client, &self.config, did)),
+        }
     }
 }

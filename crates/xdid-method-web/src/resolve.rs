@@ -1,3 +1,5 @@
+#[cfg(target_family = "wasm")]
+use futures::channel::oneshot;
 use reqwest::{
     Client,
     StatusCode,
@@ -14,6 +16,26 @@ use crate::{
     client,
     parse,
 };
+
+/// A browser's `fetch` future is `!Send`, so it cannot be awaited where the
+/// caller's future must be `Send`. It runs on the browser's own executor and
+/// the result travels back over a channel.
+#[cfg(target_family = "wasm")]
+pub async fn bridged(
+    client: Client,
+    config: Config,
+    did: Did,
+) -> Result<Document, ResolutionError> {
+    let (tx, rx) = oneshot::channel();
+    wasm_bindgen_futures::spawn_local(async move {
+        if tx.send(document(&client, &config, &did).await).is_err() {
+            // The awaiting side was dropped before the fetch ended, so the
+            // outcome has no listener.
+        }
+    });
+    rx.await
+        .map_err(|_| ResolutionError::Transport("resolution was cancelled".into()))?
+}
 
 /// Fetches `did`'s document and checks that it speaks for `did`.
 pub async fn document(
