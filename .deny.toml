@@ -5,7 +5,6 @@ yanked  = "deny"
 [licenses]
 allow = [
   "Apache-2.0",
-  "BSD-2-Clause",
   "BSD-3-Clause",
   # Mozilla CA root bundle, via webpki-root-certs.
   "CDLA-Permissive-2.0",
